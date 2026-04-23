@@ -1,5 +1,5 @@
 import { Link, Stack } from 'expo-router';
-import { PlusIcon } from 'lucide-react-native';
+import { FlameIcon, PlusIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Dimensions, SectionList, View } from 'react-native';
 import ConfettiCannon from 'react-native-confetti-cannon';
@@ -12,6 +12,7 @@ import { Text } from '@/components/ui/text';
 import { onCelebrate } from '@/lib/celebrate';
 import { groupEntries } from '@/lib/grouping';
 import { useEntriesStore } from '@/lib/stores/entries';
+import { currentStreak } from '@/lib/streak';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -30,19 +31,33 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
 
   const sections = React.useMemo(() => groupEntries(entries), [entries]);
+  const streak = React.useMemo(() => currentStreak(entries), [entries]);
 
   React.useEffect(() => onCelebrate(() => cannon.current?.start()), []);
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Journal' }} />
+      <Stack.Screen
+        options={{
+          title: 'Journal',
+          headerRight: () =>
+            streak > 0 ? (
+              <View className="mr-2 flex-row items-center gap-1 rounded-full bg-orange-500/15 px-3 py-1">
+                <Icon as={FlameIcon} size={14} className="text-orange-500" />
+                <Text className="text-sm font-semibold text-orange-600">
+                  {streak}-day streak
+                </Text>
+              </View>
+            ) : null,
+        }}
+      />
       {hydrated && entries.length === 0 ? (
         <EmptyState />
       ) : (
         <SectionList
           sections={sections}
           keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => <EntryRow entry={item} index={index} />}
+          renderItem={({ item }) => <EntryRow entry={item} />}
           renderSectionHeader={({ section }) => (
             <View className="bg-background px-4 pb-1 pt-3">
               <Text variant="small" className="text-muted-foreground">

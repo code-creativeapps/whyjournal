@@ -13,3 +13,5 @@ export type NewEntryInput = {
   title: string;
   body?: string;
 };
+
+export type UpdateEntryInput = Partial<NewEntryInput>;
