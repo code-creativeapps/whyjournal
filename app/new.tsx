@@ -5,6 +5,7 @@ import { KeyboardAvoidingView, Platform, Pressable, TextInput, View } from 'reac
 import { TypeToggle } from '@/components/type-toggle';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
+import { celebrate } from '@/lib/celebrate';
 import type { EntryType } from '@/lib/entries/types';
 import { useEntriesStore } from '@/lib/stores/entries';
 
@@ -20,6 +21,7 @@ export default function NewEntryScreen() {
   async function handleSave() {
     if (!canSave) return;
     setSaving(true);
+    celebrate();
     try {
       await addEntry({
         type,

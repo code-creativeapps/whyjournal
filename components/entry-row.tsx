@@ -1,36 +1,39 @@
 import { CheckIcon, HeartIcon } from 'lucide-react-native';
 import { View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import type { Entry } from '@/lib/entries/types';
 
-export function EntryRow({ entry }: { entry: Entry }) {
+export function EntryRow({ entry, index }: { entry: Entry; index: number }) {
   const isWin = entry.type === 'win';
   return (
-    <View className="flex-row items-center gap-3 px-4 py-3">
-      <View
-        className={
-          isWin
-            ? 'size-7 items-center justify-center rounded-full bg-green-500/15'
-            : 'size-7 items-center justify-center rounded-full bg-pink-500/15'
-        }>
-        <Icon
-          as={isWin ? CheckIcon : HeartIcon}
-          size={16}
-          className={isWin ? 'text-green-600' : 'text-pink-600'}
-        />
-      </View>
-      <View className="flex-1">
-        <Text className="text-base" numberOfLines={1}>
-          {entry.title}
-        </Text>
-        {entry.body ? (
-          <Text variant="muted" numberOfLines={1}>
-            {entry.body}
+    <Animated.View entering={FadeInDown.delay(Math.min(index, 10) * 30).springify().damping(14)}>
+      <View className="flex-row items-center gap-3 px-4 py-1.5">
+        <View
+          className={
+            isWin
+              ? 'size-6 items-center justify-center rounded-full bg-green-500/15'
+              : 'size-6 items-center justify-center rounded-full bg-pink-500/15'
+          }>
+          <Icon
+            as={isWin ? CheckIcon : HeartIcon}
+            size={14}
+            className={isWin ? 'text-green-600' : 'text-pink-600'}
+          />
+        </View>
+        <View className="flex-1">
+          <Text className="text-base" numberOfLines={1}>
+            {entry.title}
           </Text>
-        ) : null}
+          {entry.body ? (
+            <Text variant="muted" numberOfLines={1}>
+              {entry.body}
+            </Text>
+          ) : null}
+        </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
