@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import * as React from 'react';
 import { Dimensions, SectionList, View } from 'react-native';
 import ConfettiCannon from 'react-native-confetti-cannon';
@@ -5,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EntryRow } from '@/components/entry-row';
 import { Fab } from '@/components/fab';
+import { SwipeableRow } from '@/components/swipeable-row';
 import { SwipeableScreen } from '@/components/swipeable-screen';
 import { Text } from '@/components/ui/text';
 import { onCelebrate } from '@/lib/celebrate';
@@ -16,6 +18,7 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 export default function JournalScreen() {
   const entries = useEntriesStore((state) => state.entries);
   const hydrated = useEntriesStore((state) => state.hydrated);
+  const deleteEntry = useEntriesStore((state) => state.deleteEntry);
   const cannon = React.useRef<ConfettiCannon>(null);
   const insets = useSafeAreaInsets();
 
@@ -40,7 +43,15 @@ export default function JournalScreen() {
           <SectionList
             sections={sections}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <EntryRow entry={item} />}
+            renderItem={({ item }) => (
+              <SwipeableRow
+                onEdit={() => router.push({ pathname: '/new', params: { id: item.id } })}
+                onDelete={() => deleteEntry(item.id)}
+                deleteConfirmTitle="Delete entry"
+              >
+                <EntryRow entry={item} />
+              </SwipeableRow>
+            )}
             renderSectionHeader={({ section }) => (
               <View className="bg-background px-4 pb-1 pt-3">
                 <Text variant="small" className="text-muted-foreground">

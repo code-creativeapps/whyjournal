@@ -12,6 +12,7 @@ import Animated, {
 
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { startCompletionSound, stopCompletionSound } from '@/lib/celebrate';
 import type { LucideIcon } from 'lucide-react-native';
 
 type Props = {
@@ -36,6 +37,7 @@ export function HoldToConfirmButton({ label, icon, onConfirm, durationMs = 3000 
 
   function startPress() {
     Haptics.selectionAsync().catch(() => {});
+    startCompletionSound();
     progress.value = withTiming(
       1,
       { duration: durationMs, easing: Easing.linear },
@@ -48,6 +50,7 @@ export function HoldToConfirmButton({ label, icon, onConfirm, durationMs = 3000 
   function cancelPress() {
     cancelAnimation(progress);
     progress.value = withTiming(0, { duration: 200 });
+    stopCompletionSound();
   }
 
   return (

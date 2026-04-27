@@ -90,7 +90,11 @@ export default function EntryFormScreen() {
         options={{
           title: isEditing ? 'Edit entry' : 'New entry',
           headerRight: () => (
-            <Pressable onPress={handleSave} disabled={!canSave} className="px-2">
+            <Pressable
+              onPress={handleSave}
+              disabled={!canSave}
+              hitSlop={8}
+              className="flex-row items-center px-2">
               <Text
                 className={
                   canSave

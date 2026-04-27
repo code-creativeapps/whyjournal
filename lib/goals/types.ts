@@ -5,10 +5,11 @@ export type Goal = BaseItem & {
   targetDate?: string;
   completedAt?: string;
   why?: string;
+  reward?: string;
 };
 
 // Internal editor-only type used by the milestones UI inside the goal form.
-// These are surfaced in the Todos section (each milestone is a linked Todo).
+// Persisted as rows in the `milestones` table on save.
 export type MilestoneDraft = {
   id: string;
   title: string;

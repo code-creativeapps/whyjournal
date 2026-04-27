@@ -19,6 +19,7 @@ const DEFAULT_MAP: ColumnMap = {
   completedAt: 'completed_at',
   targetDate: 'target_date',
   goalId: 'goal_id',
+  dueAt: 'due_at',
 };
 
 export function createSupabaseRepository<T extends BaseItem>(

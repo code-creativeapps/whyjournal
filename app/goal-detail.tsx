@@ -1,5 +1,5 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { CalendarIcon, CheckIcon, PencilIcon } from 'lucide-react-native';
+import { CalendarIcon, CheckIcon, GiftIcon, PencilIcon, TargetIcon, XIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
@@ -9,7 +9,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { goalProgress } from '@/lib/goals/progress';
 import { useGoalsStore } from '@/lib/stores/goals';
-import { useTodosStore } from '@/lib/stores/todos';
+import { useMilestonesStore } from '@/lib/stores/milestones';
 import { cn } from '@/lib/utils';
 
 export default function GoalDetailScreen() {
@@ -18,27 +18,25 @@ export default function GoalDetailScreen() {
     id ? state.items.find((g) => g.id === id) : undefined
   );
   const updateGoal = useGoalsStore((state) => state.updateItem);
-  const allTodos = useTodosStore((state) => state.items);
-  const updateTodo = useTodosStore((state) => state.updateItem);
+  const allMilestones = useMilestonesStore((state) => state.items);
+  const updateMilestone = useMilestonesStore((state) => state.updateItem);
 
-  const linkedTodos = React.useMemo(
-    () => (id ? allTodos.filter((t) => t.goalId === id) : []),
-    [allTodos, id]
+  const milestones = React.useMemo(
+    () => (id ? allMilestones.filter((m) => m.goalId === id) : []),
+    [allMilestones, id]
   );
   const progress = React.useMemo(
-    () => (goal ? goalProgress(goal, linkedTodos) : null),
-    [goal, linkedTodos]
+    () => (goal ? goalProgress(goal, milestones) : null),
+    [goal, milestones]
   );
 
-  if (!goal || !progress) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <Text variant="muted">Goal not found</Text>
-      </View>
-    );
-  }
+  React.useEffect(() => {
+    if (id && !goal && router.canGoBack()) router.back();
+  }, [id, goal]);
 
-  const hasMilestones = linkedTodos.length > 0;
+  if (!goal || !progress) return null;
+
+  const hasMilestones = milestones.length > 0;
 
   function handleMarkCompleted() {
     if (!goal) return;
@@ -53,6 +51,11 @@ export default function GoalDetailScreen() {
       <Stack.Screen
         options={{
           title: 'Goal',
+          headerLeft: () => (
+            <Pressable onPress={() => router.back()} hitSlop={8} className="px-2">
+              <Icon as={XIcon} size={20} className="text-foreground" />
+            </Pressable>
+          ),
           headerRight: () => (
             <Pressable
               onPress={() => router.push({ pathname: '/goal', params: { id: goal.id } })}
@@ -64,13 +67,18 @@ export default function GoalDetailScreen() {
           ),
         }}
       />
-      <ScrollView contentContainerClassName="gap-5 px-4 pt-4 pb-10">
-        <View className="gap-2">
-          <Text variant="h2" className={cn(goal.done && 'text-muted-foreground line-through')}>
+      <ScrollView contentContainerClassName="gap-6 px-6 pt-12 pb-10">
+        <View className="items-center gap-4">
+          <View className="size-20 items-center justify-center rounded-full bg-red-500/15">
+            <Icon as={TargetIcon} size={40} className="text-red-500" />
+          </View>
+          <Text
+            variant="h2"
+            className={cn('text-center', goal.done && 'text-muted-foreground line-through')}>
             {goal.title}
           </Text>
           {goal.targetDate ? (
-            <View className="flex-row items-center gap-1.5 self-start rounded-full bg-muted px-3 py-1">
+            <View className="flex-row items-center gap-1.5 rounded-full bg-muted px-3 py-1">
               <Icon as={CalendarIcon} size={13} className="text-muted-foreground" />
               <Text variant="small" className="text-sm text-muted-foreground">
                 {goal.targetDate}
@@ -85,6 +93,18 @@ export default function GoalDetailScreen() {
               Why it matters
             </Text>
             <Text className="text-base leading-6">{goal.why}</Text>
+          </View>
+        ) : null}
+
+        {goal.reward ? (
+          <View className="gap-1">
+            <Text variant="muted" className="text-xs uppercase tracking-wide">
+              Reward
+            </Text>
+            <View className="flex-row items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+              <Icon as={GiftIcon} size={18} className="text-amber-500" />
+              <Text className="flex-1 text-base leading-6">{goal.reward}</Text>
+            </View>
           </View>
         ) : null}
 
@@ -108,30 +128,30 @@ export default function GoalDetailScreen() {
           </Text>
           {hasMilestones ? (
             <View className="overflow-hidden rounded-xl border border-border">
-              {linkedTodos.map((todo, idx) => (
+              {milestones.map((m, idx) => (
                 <View
-                  key={todo.id}
+                  key={m.id}
                   className={cn('flex-row items-center gap-3 px-3 py-3', idx > 0 && 'border-t border-border')}>
                   <Pressable
                     onPress={() =>
-                      updateTodo(todo.id, {
-                        done: !todo.done,
-                        completedAt: !todo.done ? new Date().toISOString() : undefined,
+                      updateMilestone(m.id, {
+                        done: !m.done,
+                        completedAt: !m.done ? new Date().toISOString() : undefined,
                       })
                     }
                     hitSlop={8}
                     className={cn(
                       'size-6 items-center justify-center rounded-md border-2',
-                      todo.done ? 'border-red-500 bg-red-500' : 'border-muted-foreground/40'
+                      m.done ? 'border-red-500 bg-red-500' : 'border-muted-foreground/40'
                     )}>
-                    {todo.done ? <Icon as={CheckIcon} size={14} className="text-white" /> : null}
+                    {m.done ? <Icon as={CheckIcon} size={14} className="text-white" /> : null}
                   </Pressable>
                   <Text
                     className={cn(
                       'flex-1 text-base',
-                      todo.done && 'text-muted-foreground line-through'
+                      m.done && 'text-muted-foreground line-through'
                     )}>
-                    {todo.title}
+                    {m.title}
                   </Text>
                 </View>
               ))}

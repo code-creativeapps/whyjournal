@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fab } from '@/components/fab';
 import { SimpleItemRow } from '@/components/simple-item-row';
+import { SwipeableRow } from '@/components/swipeable-row';
 import { SwipeableScreen } from '@/components/swipeable-screen';
 import { Text } from '@/components/ui/text';
 import { useBucketStore } from '@/lib/stores/bucket';
@@ -12,6 +13,7 @@ import { useBucketStore } from '@/lib/stores/bucket';
 export default function BucketScreen() {
   const items = useBucketStore((state) => state.items);
   const hydrated = useBucketStore((state) => state.hydrated);
+  const deleteItem = useBucketStore((state) => state.deleteItem);
   const insets = useSafeAreaInsets();
 
   return (
@@ -31,18 +33,29 @@ export default function BucketScreen() {
             data={items}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <SimpleItemRow
-                kind="icon"
-                icon={StarIcon}
-                iconBgClass="bg-yellow-500/15"
-                iconColorClass="text-yellow-500"
-                done={item.done}
-                title={item.title}
-                body={item.body}
-                onPress={() =>
-                  router.push({ pathname: '/bucket-detail', params: { id: item.id } })
+              <SwipeableRow
+                onEdit={() =>
+                  router.push({
+                    pathname: '/simple-item',
+                    params: { kind: 'bucket', id: item.id },
+                  })
                 }
-              />
+                onDelete={() => deleteItem(item.id)}
+                deleteConfirmTitle="Delete bucket item"
+              >
+                <SimpleItemRow
+                  kind="icon"
+                  icon={StarIcon}
+                  iconBgClass="bg-yellow-500/15"
+                  iconColorClass="text-yellow-500"
+                  done={item.done}
+                  title={item.title}
+                  body={item.body}
+                  onPress={() =>
+                    router.push({ pathname: '/bucket-detail', params: { id: item.id } })
+                  }
+                />
+              </SwipeableRow>
             )}
             ItemSeparatorComponent={() => <View className="h-px bg-border" />}
             contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}

@@ -11,7 +11,7 @@ export function EntryRow({ entry }: { entry: Entry }) {
   const isWin = entry.type === 'win';
   return (
     <Animated.View entering={FadeIn.duration(180)}>
-      <Link href={{ pathname: '/new', params: { id: entry.id } }} asChild>
+      <Link href={{ pathname: '/entry-detail', params: { id: entry.id } }} asChild>
         <Pressable className="active:bg-accent">
           <View className="flex-row items-center gap-3 px-4 py-1.5">
             <View

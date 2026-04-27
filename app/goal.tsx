@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import type { Goal, MilestoneDraft } from '@/lib/goals/types';
 import { useGoalsStore } from '@/lib/stores/goals';
-import { useTodosStore } from '@/lib/stores/todos';
+import { useMilestonesStore } from '@/lib/stores/milestones';
 
 export default function GoalFormScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -29,26 +29,27 @@ export default function GoalFormScreen() {
   const updateGoal = useGoalsStore((state) => state.updateItem);
   const deleteGoal = useGoalsStore((state) => state.deleteItem);
 
-  const allTodos = useTodosStore((state) => state.items);
-  const addTodo = useTodosStore((state) => state.addItem);
-  const updateTodo = useTodosStore((state) => state.updateItem);
-  const deleteTodo = useTodosStore((state) => state.deleteItem);
+  const allMilestones = useMilestonesStore((state) => state.items);
+  const addMilestone = useMilestonesStore((state) => state.addItem);
+  const updateMilestone = useMilestonesStore((state) => state.updateItem);
+  const deleteMilestone = useMilestonesStore((state) => state.deleteItem);
 
   const isEditing = Boolean(id);
 
-  // Snapshot of linked todos at mount — the baseline we diff against on save.
-  const initialLinkedTodosRef = React.useRef(
-    id ? allTodos.filter((t) => t.goalId === id) : []
+  // Snapshot of current milestones at mount — the baseline we diff against on save.
+  const initialMilestonesRef = React.useRef(
+    id ? allMilestones.filter((m) => m.goalId === id) : []
   );
 
   const [title, setTitle] = React.useState(existing?.title ?? '');
   const [why, setWhy] = React.useState(existing?.why ?? '');
+  const [reward, setReward] = React.useState(existing?.reward ?? '');
   const [targetDate, setTargetDate] = React.useState(existing?.targetDate ?? '');
   const [milestones, setMilestones] = React.useState<MilestoneDraft[]>(() =>
-    initialLinkedTodosRef.current.map((t) => ({
-      id: t.id,
-      title: t.title,
-      done: t.done,
+    initialMilestonesRef.current.map((m) => ({
+      id: m.id,
+      title: m.title,
+      done: m.done,
     }))
   );
   const [saving, setSaving] = React.useState(false);
@@ -61,13 +62,14 @@ export default function GoalFormScreen() {
     if (!canSave) return;
     setSaving(true);
     try {
-      // 1. Write the goal, capturing its id (new or existing).
       const goalPayload: Partial<Goal> = {
         title: title.trim(),
         why: why.trim() || undefined,
+        reward: reward.trim() || undefined,
         targetDate: targetDate.trim() || undefined,
         done: existing?.done ?? false,
       };
+
       let goalId: string;
       if (isEditing && id) {
         await updateGoal(id, goalPayload);
@@ -77,25 +79,27 @@ export default function GoalFormScreen() {
         goalId = created.id;
       }
 
-      // 2. Sync milestones -> linked todos (create/update/delete).
-      const initialLinked = initialLinkedTodosRef.current;
-      const initialIds = new Set(initialLinked.map((t) => t.id));
+      // Sync milestones — diff the local drafts against the initial snapshot.
+      const initial = initialMilestonesRef.current;
+      const initialIds = new Set(initial.map((m) => m.id));
       const keptIds = new Set<string>();
       for (const m of milestones) {
         const cleanTitle = m.title.trim();
         if (!cleanTitle) continue;
         if (initialIds.has(m.id)) {
           keptIds.add(m.id);
-          const before = initialLinked.find((t) => t.id === m.id)!;
+          const before = initial.find((x) => x.id === m.id)!;
           if (before.title !== cleanTitle || before.done !== m.done) {
-            await updateTodo(m.id, {
+            await updateMilestone(m.id, {
               title: cleanTitle,
               done: m.done,
-              completedAt: m.done ? before.completedAt ?? new Date().toISOString() : undefined,
+              completedAt: m.done
+                ? before.completedAt ?? new Date().toISOString()
+                : undefined,
             });
           }
         } else {
-          await addTodo({
+          await addMilestone({
             title: cleanTitle,
             done: m.done,
             goalId,
@@ -103,9 +107,9 @@ export default function GoalFormScreen() {
           });
         }
       }
-      for (const t of initialLinked) {
-        if (!keptIds.has(t.id)) {
-          await deleteTodo(t.id);
+      for (const m of initial) {
+        if (!keptIds.has(m.id)) {
+          await deleteMilestone(m.id);
         }
       }
 
@@ -117,24 +121,20 @@ export default function GoalFormScreen() {
 
   function handleDelete() {
     if (!id) return;
-    Alert.alert(
-      'Delete goal',
-      'Its linked milestones in Todos will be removed too. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            for (const t of initialLinkedTodosRef.current) {
-              await deleteTodo(t.id);
-            }
-            await deleteGoal(id);
-            router.back();
-          },
+    Alert.alert('Delete goal', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          // Milestones cascade via the goals.id ON DELETE in Supabase. Reset our local
+          // milestones store afterwards so the next render reflects the deletion.
+          await deleteGoal(id);
+          await useMilestonesStore.getState().hydrate();
+          router.back();
         },
-      ]
-    );
+      },
+    ]);
   }
 
   return (
@@ -143,7 +143,11 @@ export default function GoalFormScreen() {
         options={{
           title: isEditing ? 'Edit goal' : 'New goal',
           headerRight: () => (
-            <Pressable onPress={handleSave} disabled={!canSave} className="px-2">
+            <Pressable
+              onPress={handleSave}
+              disabled={!canSave}
+              hitSlop={8}
+              className="flex-row items-center px-2">
               <Text
                 className={
                   canSave
@@ -193,8 +197,18 @@ export default function GoalFormScreen() {
           </Field>
 
           <Field
+            label="Reward"
+            hint="How will you celebrate? An event, a gift, a trip — anything that motivates you.">
+            <Input
+              value={reward}
+              onChangeText={setReward}
+              placeholder="e.g. A weekend in Lisbon"
+            />
+          </Field>
+
+          <Field
             label="Milestones"
-            hint="Each milestone also appears in your Todos, tagged with this goal.">
+            hint="Break it down into concrete steps you can tick off.">
             <MilestoneEditor milestones={milestones} onChange={setMilestones} />
           </Field>
 

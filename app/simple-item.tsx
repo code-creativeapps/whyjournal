@@ -1,9 +1,12 @@
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { format, parseISO } from 'date-fns';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { Trash2Icon } from 'lucide-react-native';
+import { CalendarIcon, Trash2Icon, XIcon } from 'lucide-react-native';
 import * as React from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   TextInput,
@@ -28,6 +31,7 @@ type KindConfig = {
   titlePlaceholder: string;
   showBody: boolean;
   extraField?: 'when';
+  showDueDate?: boolean;
 };
 
 const CONFIG: Record<Kind, KindConfig> = {
@@ -50,7 +54,8 @@ const CONFIG: Record<Kind, KindConfig> = {
   todo: {
     singular: 'todo',
     titlePlaceholder: 'Something to do',
-    showBody: false,
+    showBody: true,
+    showDueDate: true,
   },
 };
 
@@ -78,7 +83,7 @@ export default function SimpleItemFormScreen() {
     const store = getStoreApi(kind);
     const items = store.getState().items as BaseItem[];
     return (items.find((i) => i.id === id) ?? null) as
-      | (BaseItem & { when?: string })
+      | (BaseItem & { when?: string; dueAt?: string })
       | null;
   });
 
@@ -87,7 +92,18 @@ export default function SimpleItemFormScreen() {
   const [extra, setExtra] = React.useState<string>(
     config.extraField === 'when' ? initial?.when ?? '' : ''
   );
+  const [dueAt, setDueAt] = React.useState<Date | null>(
+    initial?.dueAt ? parseISO(initial.dueAt) : null
+  );
+  const [pickerVisible, setPickerVisible] = React.useState(false);
+  // Working copy used inside the picker; committed to `dueAt` only when Done is tapped.
+  const [pickerDate, setPickerDate] = React.useState<Date>(() => new Date());
   const [saving, setSaving] = React.useState(false);
+
+  function openDuePicker() {
+    setPickerDate(dueAt ?? new Date());
+    setPickerVisible(true);
+  }
 
   const canSave = title.trim().length > 0 && !saving;
 
@@ -100,6 +116,9 @@ export default function SimpleItemFormScreen() {
     };
     if (config.showBody) payload.body = body.trim() || undefined;
     if (config.extraField === 'when') payload.when = extra.trim() || undefined;
+    if (config.showDueDate) {
+      payload.dueAt = dueAt ? format(dueAt, 'yyyy-MM-dd') : undefined;
+    }
     if (kind === 'bucket' || kind === 'todo') {
       payload.done = initial && 'done' in initial ? (initial as { done?: boolean }).done ?? false : false;
     }
@@ -145,7 +164,11 @@ export default function SimpleItemFormScreen() {
         options={{
           title: screenTitle,
           headerRight: () => (
-            <Pressable onPress={handleSave} disabled={!canSave} className="px-2">
+            <Pressable
+              onPress={handleSave}
+              disabled={!canSave}
+              hitSlop={8}
+              className="flex-row items-center px-2">
               <Text
                 className={
                   canSave
@@ -187,6 +210,27 @@ export default function SimpleItemFormScreen() {
               placeholder="When (e.g. 2019, Summer 2023)"
             />
           ) : null}
+          {config.showDueDate ? (
+            <Pressable
+              onPress={openDuePicker}
+              className="flex-row items-center gap-2 rounded-md border border-input bg-background px-3 py-2">
+              <Icon as={CalendarIcon} size={16} className="text-muted-foreground" />
+              <Text
+                className={
+                  dueAt ? 'flex-1 text-base text-foreground' : 'flex-1 text-base text-muted-foreground'
+                }>
+                {dueAt ? format(dueAt, 'EEEE, MMM d, yyyy') : 'Set due date'}
+              </Text>
+              {dueAt ? (
+                <Pressable
+                  onPress={() => setDueAt(null)}
+                  hitSlop={8}
+                  className="p-1">
+                  <Icon as={XIcon} size={16} className="text-muted-foreground" />
+                </Pressable>
+              ) : null}
+            </Pressable>
+          ) : null}
           {isEditing ? (
             <Button variant="outline" onPress={handleDelete}>
               <Icon as={Trash2Icon} className="text-destructive" />
@@ -195,6 +239,48 @@ export default function SimpleItemFormScreen() {
           ) : null}
         </View>
       </KeyboardAvoidingView>
+      {config.showDueDate ? (
+        <Modal
+          visible={pickerVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPickerVisible(false)}>
+          <Pressable
+            onPress={() => setPickerVisible(false)}
+            className="flex-1 items-center justify-center bg-black/40 px-6">
+            <View
+              onStartShouldSetResponder={() => true}
+              style={{ maxWidth: 360, width: '100%' }}
+              className="rounded-2xl bg-background p-4">
+              <DateTimePicker
+                value={pickerDate}
+                mode="date"
+                display="inline"
+                onChange={(event, date) => {
+                  if (event.type === 'set' && date) setPickerDate(date);
+                }}
+              />
+              <View className="mt-2 flex-row justify-end gap-4">
+                <Pressable
+                  onPress={() => setPickerVisible(false)}
+                  hitSlop={8}
+                  className="px-3 py-2">
+                  <Text className="text-base text-muted-foreground">Cancel</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    setDueAt(pickerDate);
+                    setPickerVisible(false);
+                  }}
+                  hitSlop={8}
+                  className="px-3 py-2">
+                  <Text className="text-base font-semibold text-primary">Done</Text>
+                </Pressable>
+              </View>
+            </View>
+          </Pressable>
+        </Modal>
+      ) : null}
     </>
   );
 }

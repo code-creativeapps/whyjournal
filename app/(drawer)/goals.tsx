@@ -6,29 +6,29 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fab } from '@/components/fab';
 import { SimpleItemRow } from '@/components/simple-item-row';
+import { SwipeableRow } from '@/components/swipeable-row';
 import { SwipeableScreen } from '@/components/swipeable-screen';
 import { Text } from '@/components/ui/text';
 import { goalProgress } from '@/lib/goals/progress';
 import { useGoalsStore } from '@/lib/stores/goals';
-import { useTodosStore } from '@/lib/stores/todos';
+import { useMilestonesStore } from '@/lib/stores/milestones';
 
 export default function GoalsScreen() {
   const items = useGoalsStore((state) => state.items);
   const hydrated = useGoalsStore((state) => state.hydrated);
-  const todos = useTodosStore((state) => state.items);
+  const deleteGoal = useGoalsStore((state) => state.deleteItem);
+  const milestones = useMilestonesStore((state) => state.items);
   const insets = useSafeAreaInsets();
 
-  const linkedByGoal = React.useMemo(() => {
-    const map = new Map<string, typeof todos>();
-    for (const t of todos) {
-      if (t.goalId) {
-        const existing = map.get(t.goalId) ?? [];
-        existing.push(t);
-        map.set(t.goalId, existing);
-      }
+  const milestonesByGoal = React.useMemo(() => {
+    const map = new Map<string, typeof milestones>();
+    for (const m of milestones) {
+      const existing = map.get(m.goalId) ?? [];
+      existing.push(m);
+      map.set(m.goalId, existing);
     }
     return map;
-  }, [todos]);
+  }, [milestones]);
 
   return (
     <SwipeableScreen route="goals">
@@ -47,7 +47,7 @@ export default function GoalsScreen() {
             data={items}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => {
-              const linked = linkedByGoal.get(item.id) ?? [];
+              const linked = milestonesByGoal.get(item.id) ?? [];
               const progress = goalProgress(item, linked);
               const subtitleParts: string[] = [];
               if (linked.length > 0) {
@@ -57,19 +57,26 @@ export default function GoalsScreen() {
                 subtitleParts.push(item.targetDate);
               }
               return (
-                <SimpleItemRow
-                  kind="icon"
-                  icon={TargetIcon}
-                  iconBgClass="bg-red-500/15"
-                  iconColorClass="text-red-500"
-                  done={item.done}
-                  title={item.title}
-                  subtitle={subtitleParts.join(' · ') || undefined}
-                  body={item.why}
-                  onPress={() =>
-                    router.push({ pathname: '/goal-detail', params: { id: item.id } })
-                  }
-                />
+                <SwipeableRow
+                  onEdit={() => router.push({ pathname: '/goal', params: { id: item.id } })}
+                  onDelete={() => deleteGoal(item.id)}
+                  deleteConfirmTitle="Delete goal"
+                  deleteConfirmBody="Linked milestones will be removed too. This cannot be undone."
+                >
+                  <SimpleItemRow
+                    kind="icon"
+                    icon={TargetIcon}
+                    iconBgClass="bg-red-500/15"
+                    iconColorClass="text-red-500"
+                    done={item.done}
+                    title={item.title}
+                    subtitle={subtitleParts.join(' · ') || undefined}
+                    body={item.why}
+                    onPress={() =>
+                      router.push({ pathname: '/goal-detail', params: { id: item.id } })
+                    }
+                  />
+                </SwipeableRow>
               );
             }}
             ItemSeparatorComponent={() => <View className="h-px bg-border" />}

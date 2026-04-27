@@ -1,5 +1,5 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { CheckIcon, PencilIcon } from 'lucide-react-native';
+import { CheckIcon, PencilIcon, StarIcon, XIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
@@ -17,13 +17,11 @@ export default function BucketDetailScreen() {
   );
   const updateItem = useBucketStore((state) => state.updateItem);
 
-  if (!item) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <Text variant="muted">Item not found</Text>
-      </View>
-    );
-  }
+  React.useEffect(() => {
+    if (id && !item && router.canGoBack()) router.back();
+  }, [id, item]);
+
+  if (!item) return null;
 
   function handleMarkCompleted() {
     if (!item) return;
@@ -38,6 +36,11 @@ export default function BucketDetailScreen() {
       <Stack.Screen
         options={{
           title: 'Bucket item',
+          headerLeft: () => (
+            <Pressable onPress={() => router.back()} hitSlop={8} className="px-2">
+              <Icon as={XIcon} size={20} className="text-foreground" />
+            </Pressable>
+          ),
           headerRight: () => (
             <Pressable
               onPress={() =>
@@ -51,20 +54,20 @@ export default function BucketDetailScreen() {
           ),
         }}
       />
-      <ScrollView contentContainerClassName="gap-5 px-4 pt-4 pb-10">
-        <Text
-          variant="h2"
-          className={cn(item.done && 'text-muted-foreground line-through')}>
-          {item.title}
-        </Text>
+      <ScrollView contentContainerClassName="gap-6 px-6 pt-12 pb-10">
+        <View className="items-center gap-4">
+          <View className="size-20 items-center justify-center rounded-full bg-yellow-500/15">
+            <Icon as={StarIcon} size={40} className="text-yellow-500" />
+          </View>
+          <Text
+            variant="h2"
+            className={cn('text-center', item.done && 'text-muted-foreground line-through')}>
+            {item.title}
+          </Text>
+        </View>
 
         {item.body ? (
-          <View className="gap-1">
-            <Text variant="muted" className="text-xs uppercase tracking-wide">
-              Notes
-            </Text>
-            <Text className="text-base leading-6">{item.body}</Text>
-          </View>
+          <Text className="text-center text-base leading-7 text-foreground">{item.body}</Text>
         ) : null}
 
         {item.done ? (

@@ -16,6 +16,7 @@ import { useEntriesStore } from '@/lib/stores/entries';
 import { useAffirmationsStore } from '@/lib/stores/affirmations';
 import { useBucketStore } from '@/lib/stores/bucket';
 import { useGoalsStore } from '@/lib/stores/goals';
+import { useMilestonesStore } from '@/lib/stores/milestones';
 import { useOnboardingStore } from '@/lib/stores/onboarding';
 import { useTodosStore } from '@/lib/stores/todos';
 import { useTrophiesStore } from '@/lib/stores/trophies';
@@ -47,6 +48,7 @@ export default function RootLayout() {
       useAffirmationsStore.getState().reset();
       useBucketStore.getState().reset();
       useGoalsStore.getState().reset();
+      useMilestonesStore.getState().reset();
       useTodosStore.getState().reset();
       useTrophiesStore.getState().reset();
       useOnboardingStore.getState().reset();
@@ -57,6 +59,7 @@ export default function RootLayout() {
     useAffirmationsStore.getState().hydrate().catch(() => {});
     useBucketStore.getState().hydrate().catch(() => {});
     useGoalsStore.getState().hydrate().catch(() => {});
+    useMilestonesStore.getState().hydrate().catch(() => {});
     useTodosStore.getState().hydrate().catch(() => {});
     useTrophiesStore.getState().hydrate().catch(() => {});
   }, [userId]);
@@ -73,11 +76,23 @@ export default function RootLayout() {
             <Stack.Screen name="goal" options={{ presentation: 'modal' }} />
             <Stack.Screen
               name="goal-detail"
-              options={{ headerShown: true, title: 'Goal', headerBackTitle: 'Back' }}
+              options={{ headerShown: true, title: 'Goal', presentation: 'formSheet' }}
             />
             <Stack.Screen
               name="bucket-detail"
-              options={{ headerShown: true, title: 'Bucket item', headerBackTitle: 'Back' }}
+              options={{ headerShown: true, title: 'Bucket item', presentation: 'formSheet' }}
+            />
+            <Stack.Screen
+              name="entry-detail"
+              options={{ headerShown: true, title: 'Entry', presentation: 'formSheet' }}
+            />
+            <Stack.Screen
+              name="reminder-detail"
+              options={{ headerShown: true, title: 'Reminder', presentation: 'formSheet' }}
+            />
+            <Stack.Screen
+              name="trophy-detail"
+              options={{ headerShown: true, title: 'Trophy', presentation: 'formSheet' }}
             />
             <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
             <Stack.Screen name="sign-in" options={{ headerShown: false, gestureEnabled: false }} />

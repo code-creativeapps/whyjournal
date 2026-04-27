@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fab } from '@/components/fab';
 import { SimpleItemRow } from '@/components/simple-item-row';
+import { SwipeableRow } from '@/components/swipeable-row';
 import { SwipeableScreen } from '@/components/swipeable-screen';
 import { Text } from '@/components/ui/text';
 import { useAffirmationsStore } from '@/lib/stores/affirmations';
@@ -12,6 +13,7 @@ import { useAffirmationsStore } from '@/lib/stores/affirmations';
 export default function AffirmationsScreen() {
   const items = useAffirmationsStore((state) => state.items);
   const hydrated = useAffirmationsStore((state) => state.hydrated);
+  const deleteItem = useAffirmationsStore((state) => state.deleteItem);
   const insets = useSafeAreaInsets();
 
   return (
@@ -31,17 +33,28 @@ export default function AffirmationsScreen() {
           data={items}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <SimpleItemRow
-              kind="icon"
-              icon={QuoteIcon}
-              iconBgClass="bg-indigo-500/15"
-              iconColorClass="text-indigo-500"
-              title={item.title}
-              body={item.body}
-              onPress={() =>
-                router.push({ pathname: '/simple-item', params: { kind: 'affirmation', id: item.id } })
+            <SwipeableRow
+              onEdit={() =>
+                router.push({
+                  pathname: '/simple-item',
+                  params: { kind: 'affirmation', id: item.id },
+                })
               }
-            />
+              onDelete={() => deleteItem(item.id)}
+              deleteConfirmTitle="Delete reminder"
+            >
+              <SimpleItemRow
+                kind="icon"
+                icon={QuoteIcon}
+                iconBgClass="bg-indigo-500/15"
+                iconColorClass="text-indigo-500"
+                title={item.title}
+                body={item.body}
+                onPress={() =>
+                  router.push({ pathname: '/reminder-detail', params: { id: item.id } })
+                }
+              />
+            </SwipeableRow>
           )}
           ItemSeparatorComponent={() => <View className="h-px bg-border" />}
           contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
