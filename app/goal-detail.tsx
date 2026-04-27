@@ -3,6 +3,8 @@ import { CalendarIcon, CheckIcon, PencilIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
+import { AnimatedBorder } from '@/components/animated-border';
+import { HoldToConfirmButton } from '@/components/hold-to-confirm-button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { goalProgress } from '@/lib/goals/progress';
@@ -15,6 +17,7 @@ export default function GoalDetailScreen() {
   const goal = useGoalsStore((state) =>
     id ? state.items.find((g) => g.id === id) : undefined
   );
+  const updateGoal = useGoalsStore((state) => state.updateItem);
   const allTodos = useTodosStore((state) => state.items);
   const updateTodo = useTodosStore((state) => state.updateItem);
 
@@ -36,6 +39,14 @@ export default function GoalDetailScreen() {
   }
 
   const hasMilestones = linkedTodos.length > 0;
+
+  function handleMarkCompleted() {
+    if (!goal) return;
+    updateGoal(goal.id, {
+      done: true,
+      completedAt: new Date().toISOString(),
+    });
+  }
 
   return (
     <>
@@ -131,6 +142,23 @@ export default function GoalDetailScreen() {
             </Text>
           )}
         </View>
+
+        {goal.done ? (
+          <View className="flex-row items-center gap-2 self-start rounded-full bg-green-500/15 px-3 py-1.5">
+            <Icon as={CheckIcon} size={14} className="text-green-600" />
+            <Text className="text-sm font-semibold text-green-700">Completed</Text>
+          </View>
+        ) : (
+          <View className="mt-2">
+            <AnimatedBorder>
+              <HoldToConfirmButton
+                label="Hold to mark as completed"
+                icon={CheckIcon}
+                onConfirm={handleMarkCompleted}
+              />
+            </AnimatedBorder>
+          </View>
+        )}
       </ScrollView>
     </>
   );

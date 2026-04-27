@@ -20,10 +20,10 @@ export default function AffirmationsScreen() {
       {hydrated && items.length === 0 ? (
         <View className="flex-1 items-center justify-center gap-4 px-8">
           <Text variant="h3" className="text-center">
-            Collect affirmations
+            Collect reminders
           </Text>
           <Text variant="muted" className="text-center">
-            Save positive thoughts, reminders, and self-truths you want to come back to.
+            Save mantras, positive thoughts, and self-truths you want to come back to.
           </Text>
         </View>
       ) : (

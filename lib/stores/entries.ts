@@ -1,28 +1,32 @@
 import { create } from 'zustand';
 
-import { asyncStorageEntriesRepository } from '@/lib/entries/async-storage-repository';
 import type { EntriesRepository } from '@/lib/entries/repository';
+import { supabaseEntriesRepository } from '@/lib/entries/supabase-repository';
 import type { Entry, NewEntryInput, UpdateEntryInput } from '@/lib/entries/types';
 
 type EntriesState = {
   entries: Entry[];
   hydrated: boolean;
   hydrate: () => Promise<void>;
+  reset: () => void;
   addEntry: (input: NewEntryInput) => Promise<Entry>;
   updateEntry: (id: string, patch: UpdateEntryInput) => Promise<Entry>;
   deleteEntry: (id: string) => Promise<void>;
 };
 
-const repository: EntriesRepository = asyncStorageEntriesRepository;
+const repository: EntriesRepository = supabaseEntriesRepository;
 
-export const useEntriesStore = create<EntriesState>((set, get) => ({
+export const useEntriesStore = create<EntriesState>((set) => ({
   entries: [],
   hydrated: false,
 
   async hydrate() {
-    if (get().hydrated) return;
     const entries = await repository.list();
     set({ entries, hydrated: true });
+  },
+
+  reset() {
+    set({ entries: [], hydrated: false });
   },
 
   async addEntry(input) {

@@ -32,7 +32,7 @@ type KindConfig = {
 
 const CONFIG: Record<Kind, KindConfig> = {
   affirmation: {
-    singular: 'affirmation',
+    singular: 'reminder',
     titlePlaceholder: 'Write a reminder or positive thought',
     showBody: true,
   },

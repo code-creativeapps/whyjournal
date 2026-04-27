@@ -11,6 +11,7 @@ import * as React from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { useAuthStore } from '@/lib/stores/auth';
 import { useEntriesStore } from '@/lib/stores/entries';
 import { useAffirmationsStore } from '@/lib/stores/affirmations';
 import { useBucketStore } from '@/lib/stores/bucket';
@@ -27,6 +28,7 @@ export {
 
 export default function RootLayout() {
   const { colorScheme } = useColorScheme();
+  const userId = useAuthStore((s) => s.session?.user.id ?? null);
 
   React.useEffect(() => {
     setAudioModeAsync({
@@ -35,14 +37,29 @@ export default function RootLayout() {
       allowsRecording: false,
       interruptionMode: 'mixWithOthers',
     }).catch(() => {});
-    useOnboardingStore.getState().hydrate();
-    useEntriesStore.getState().hydrate();
-    useAffirmationsStore.getState().hydrate();
-    useBucketStore.getState().hydrate();
-    useGoalsStore.getState().hydrate();
-    useTodosStore.getState().hydrate();
-    useTrophiesStore.getState().hydrate();
+    useAuthStore.getState().init();
   }, []);
+
+  React.useEffect(() => {
+    if (!userId) {
+      // Sign-out: drop everything in-memory.
+      useEntriesStore.getState().reset();
+      useAffirmationsStore.getState().reset();
+      useBucketStore.getState().reset();
+      useGoalsStore.getState().reset();
+      useTodosStore.getState().reset();
+      useTrophiesStore.getState().reset();
+      useOnboardingStore.getState().reset();
+      return;
+    }
+    useOnboardingStore.getState().hydrate(userId).catch(() => {});
+    useEntriesStore.getState().hydrate().catch(() => {});
+    useAffirmationsStore.getState().hydrate().catch(() => {});
+    useBucketStore.getState().hydrate().catch(() => {});
+    useGoalsStore.getState().hydrate().catch(() => {});
+    useTodosStore.getState().hydrate().catch(() => {});
+    useTrophiesStore.getState().hydrate().catch(() => {});
+  }, [userId]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -54,8 +71,17 @@ export default function RootLayout() {
             <Stack.Screen name="new" options={{ presentation: 'modal' }} />
             <Stack.Screen name="simple-item" options={{ presentation: 'modal' }} />
             <Stack.Screen name="goal" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="goal-detail" options={{ headerShown: true, title: 'Goal' }} />
+            <Stack.Screen
+              name="goal-detail"
+              options={{ headerShown: true, title: 'Goal', headerBackTitle: 'Back' }}
+            />
+            <Stack.Screen
+              name="bucket-detail"
+              options={{ headerShown: true, title: 'Bucket item', headerBackTitle: 'Back' }}
+            />
             <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
+            <Stack.Screen name="sign-in" options={{ headerShown: false, gestureEnabled: false }} />
+            <Stack.Screen name="sign-up" options={{ headerShown: false, gestureEnabled: false }} />
           </Stack>
           <PortalHost />
         </ThemeProvider>

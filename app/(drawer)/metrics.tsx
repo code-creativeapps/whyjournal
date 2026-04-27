@@ -1,17 +1,19 @@
 import { router } from 'expo-router';
-import { AwardIcon, CalendarDaysIcon, FlameIcon, ListChecksIcon } from 'lucide-react-native';
+import { AwardIcon, CalendarDaysIcon, FlameIcon, ListChecksIcon, LogOutIcon } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Alert, Pressable, ScrollView, View } from 'react-native';
 
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { useAuthStore } from '@/lib/stores/auth';
 import { useEntriesStore } from '@/lib/stores/entries';
 import { useOnboardingStore } from '@/lib/stores/onboarding';
 import { bestStreak, currentStreak, totalDaysLogged } from '@/lib/streak';
 
 export default function MetricsScreen() {
   const entries = useEntriesStore((state) => state.entries);
+  const email = useAuthStore((state) => state.session?.user?.email);
 
   const current = React.useMemo(() => currentStreak(entries), [entries]);
   const best = React.useMemo(() => bestStreak(entries), [entries]);
@@ -49,14 +51,40 @@ export default function MetricsScreen() {
         value={`${totalEntries}`}
       />
 
+      {email ? (
+        <Text variant="muted" className="mt-8 text-center text-xs">
+          Signed in as {email}
+        </Text>
+      ) : null}
+
       <Pressable
         onPress={async () => {
-          await useOnboardingStore.getState().reset();
+          useOnboardingStore.getState().reset();
           router.replace('/onboarding');
         }}
-        className="mt-6 items-center rounded-xl border border-border bg-background px-4 py-3">
+        className="mt-2 items-center rounded-xl border border-border bg-background px-4 py-3">
         <Text variant="small" className="text-muted-foreground">
           Replay onboarding
+        </Text>
+      </Pressable>
+
+      <Pressable
+        onPress={() => {
+          Alert.alert('Sign out?', 'Your data stays in the cloud — sign back in any time.', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Sign out',
+              style: 'destructive',
+              onPress: async () => {
+                await useAuthStore.getState().signOut();
+              },
+            },
+          ]);
+        }}
+        className="mt-2 flex-row items-center justify-center gap-2 rounded-xl border border-destructive/30 bg-background px-4 py-3">
+        <Icon as={LogOutIcon} size={16} className="text-destructive" />
+        <Text variant="small" className="font-medium text-destructive">
+          Sign out
         </Text>
       </Pressable>
     </ScrollView>

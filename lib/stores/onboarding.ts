@@ -1,33 +1,45 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
-const STORAGE_KEY = 'onboarding:v1';
+const KEY_PREFIX = 'onboarding:v1:';
 
 type State = {
   completed: boolean;
   hydrated: boolean;
-  hydrate: () => Promise<void>;
+  userId: string | null;
+  hydrate: (userId: string) => Promise<void>;
   markComplete: () => Promise<void>;
-  reset: () => Promise<void>;
+  reset: () => void;
+  resetForUser: (userId?: string) => Promise<void>;
 };
 
 export const useOnboardingStore = create<State>((set, get) => ({
   completed: false,
   hydrated: false,
+  userId: null,
 
-  async hydrate() {
-    if (get().hydrated) return;
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    set({ completed: raw === 'true', hydrated: true });
+  async hydrate(userId: string) {
+    if (get().userId === userId && get().hydrated) return;
+    const raw = await AsyncStorage.getItem(KEY_PREFIX + userId);
+    set({ completed: raw === 'true', hydrated: true, userId });
   },
 
   async markComplete() {
-    await AsyncStorage.setItem(STORAGE_KEY, 'true');
+    const userId = get().userId;
+    if (!userId) return;
+    await AsyncStorage.setItem(KEY_PREFIX + userId, 'true');
     set({ completed: true });
   },
 
-  async reset() {
-    await AsyncStorage.removeItem(STORAGE_KEY);
-    set({ completed: false });
+  reset() {
+    set({ completed: false, hydrated: false, userId: null });
+  },
+
+  async resetForUser(userId?: string) {
+    const target = userId ?? get().userId;
+    if (target) {
+      await AsyncStorage.removeItem(KEY_PREFIX + target);
+    }
+    set({ completed: false, hydrated: false, userId: null });
   },
 }));

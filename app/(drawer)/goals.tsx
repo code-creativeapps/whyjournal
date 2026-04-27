@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { TargetIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { FlatList, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,7 +15,6 @@ import { useTodosStore } from '@/lib/stores/todos';
 export default function GoalsScreen() {
   const items = useGoalsStore((state) => state.items);
   const hydrated = useGoalsStore((state) => state.hydrated);
-  const updateItem = useGoalsStore((state) => state.updateItem);
   const todos = useTodosStore((state) => state.items);
   const insets = useSafeAreaInsets();
 
@@ -58,17 +58,14 @@ export default function GoalsScreen() {
               }
               return (
                 <SimpleItemRow
-                  kind="checkbox"
+                  kind="icon"
+                  icon={TargetIcon}
+                  iconBgClass="bg-red-500/15"
+                  iconColorClass="text-red-500"
+                  done={item.done}
                   title={item.title}
                   subtitle={subtitleParts.join(' · ') || undefined}
                   body={item.why}
-                  done={item.done}
-                  onToggle={() =>
-                    updateItem(item.id, {
-                      done: !item.done,
-                      completedAt: !item.done ? new Date().toISOString() : undefined,
-                    })
-                  }
                   onPress={() =>
                     router.push({ pathname: '/goal-detail', params: { id: item.id } })
                   }

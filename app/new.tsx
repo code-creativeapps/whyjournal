@@ -3,21 +3,25 @@ import { Trash2Icon } from 'lucide-react-native';
 import * as React from 'react';
 import {
   Alert,
+  Dimensions,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   TextInput,
   View,
 } from 'react-native';
+import ConfettiCannon from 'react-native-confetti-cannon';
 
 import { TypeToggle } from '@/components/type-toggle';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
-import { celebrate } from '@/lib/celebrate';
+import { celebrate, onCelebrate } from '@/lib/celebrate';
 import type { EntryType } from '@/lib/entries/types';
 import { useEntriesStore } from '@/lib/stores/entries';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export default function EntryFormScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -33,6 +37,9 @@ export default function EntryFormScreen() {
   const [title, setTitle] = React.useState(existing?.title ?? '');
   const [body, setBody] = React.useState(existing?.body ?? '');
   const [saving, setSaving] = React.useState(false);
+  const cannon = React.useRef<ConfettiCannon>(null);
+
+  React.useEffect(() => onCelebrate(() => cannon.current?.start()), []);
 
   const canSave = title.trim().length > 0 && !saving;
 
@@ -47,11 +54,16 @@ export default function EntryFormScreen() {
     try {
       if (isEditing && id) {
         await updateEntry(id, payload);
+        router.back();
       } else {
+        // Fire confetti + sound immediately on press, before the await,
+        // so the user sees it on this screen before the modal closes.
         celebrate();
         await addEntry(payload);
+        // Small delay so the confetti has time to be visible on the modal
+        // before the dismiss animation kicks in.
+        setTimeout(() => router.back(), 350);
       }
-      router.back();
     } finally {
       setSaving(false);
     }
@@ -120,6 +132,17 @@ export default function EntryFormScreen() {
           ) : null}
         </View>
       </KeyboardAvoidingView>
+      <View pointerEvents="none" className="absolute inset-0">
+        <ConfettiCannon
+          ref={cannon}
+          count={120}
+          origin={{ x: SCREEN_WIDTH / 2, y: -10 }}
+          autoStart={false}
+          fadeOut
+          explosionSpeed={350}
+          fallSpeed={2800}
+        />
+      </View>
     </>
   );
 }

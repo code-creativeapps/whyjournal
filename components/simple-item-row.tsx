@@ -25,12 +25,16 @@ type WithIconProps = CommonProps & {
   icon: LucideIcon;
   iconBgClass?: string;
   iconColorClass?: string;
+  done?: boolean;
 };
 
 export type SimpleItemRowProps = WithCheckProps | WithIconProps;
 
 export function SimpleItemRow(props: SimpleItemRowProps) {
   const { title, body, subtitle, onPress } = props;
+  const isDone =
+    (props.kind === 'checkbox' && props.done) ||
+    (props.kind === 'icon' && props.done === true);
   return (
     <Animated.View entering={FadeIn.duration(180)}>
       <Pressable onPress={onPress} className="active:bg-accent">
@@ -62,7 +66,7 @@ export function SimpleItemRow(props: SimpleItemRowProps) {
             <Text
               className={cn(
                 'text-base',
-                props.kind === 'checkbox' && props.done && 'text-muted-foreground line-through'
+                isDone && 'text-muted-foreground line-through'
               )}
               numberOfLines={1}>
               {title}

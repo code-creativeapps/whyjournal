@@ -20,8 +20,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatPill } from '@/components/stat-pill';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/lib/stores/auth';
 import { useOnboardingStore } from '@/lib/stores/onboarding';
+import { cn } from '@/lib/utils';
 
 const DRAWER_COLORS = {
   journal: '#ec4899',
@@ -51,7 +52,7 @@ const SECTIONS: Section[] = [
   },
   {
     name: 'affirmations',
-    label: 'Affirmations',
+    label: 'Reminders',
     icon: QuoteIcon,
     bgClass: 'bg-sky-500/15',
     iconColorClass: 'text-sky-500',
@@ -95,8 +96,13 @@ const METRICS_ITEM: Section = {
 };
 
 export default function DrawerLayout() {
+  const session = useAuthStore((s) => s.session);
+  const authLoading = useAuthStore((s) => s.loading);
   const hydrated = useOnboardingStore((s) => s.hydrated);
   const completed = useOnboardingStore((s) => s.completed);
+
+  if (authLoading) return null;
+  if (!session) return <Redirect href="/sign-in" />;
   if (!hydrated) return null;
   if (!completed) return <Redirect href="/onboarding" />;
   return (
@@ -107,7 +113,7 @@ export default function DrawerLayout() {
         name="index"
         options={{ title: 'Journal', headerRight: () => <StatPill /> }}
       />
-      <Drawer.Screen name="affirmations" options={{ title: 'Affirmations' }} />
+      <Drawer.Screen name="affirmations" options={{ title: 'Reminders' }} />
       <Drawer.Screen name="bucket" options={{ title: 'Bucket list' }} />
       <Drawer.Screen name="goals" options={{ title: 'Goals' }} />
       <Drawer.Screen name="trophies" options={{ title: 'Trophies' }} />
