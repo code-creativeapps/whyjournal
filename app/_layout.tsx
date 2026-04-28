@@ -85,6 +85,7 @@ export default function RootLayout() {
             <Stack.Screen name="goal" options={{ presentation: 'modal' }} />
             <Stack.Screen name="milestone" options={{ presentation: 'modal' }} />
             <Stack.Screen name="habit" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="search" options={{ presentation: 'modal' }} />
             <Stack.Screen
               name="goal-detail"
               options={{ headerShown: true, title: 'Goal', presentation: 'formSheet' }}

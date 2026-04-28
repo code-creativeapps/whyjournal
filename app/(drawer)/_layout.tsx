@@ -3,7 +3,7 @@ import {
   type DrawerContentComponentProps,
 } from '@react-navigation/drawer';
 import { Drawer } from 'expo-router/drawer';
-import { Redirect } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import {
   BarChart3Icon,
   CheckSquareIcon,
@@ -11,6 +11,7 @@ import {
   type LucideIcon,
   QuoteIcon,
   RepeatIcon,
+  SearchIcon,
   StarIcon,
   TargetIcon,
   TrophyIcon,
@@ -115,11 +116,23 @@ export default function DrawerLayout() {
   if (!completed) return <Redirect href="/onboarding" />;
   return (
     <Drawer
-      screenOptions={{ headerShown: true, drawerType: 'slide' }}
+      screenOptions={{
+        headerShown: true,
+        drawerType: 'slide',
+        headerRight: () => <SearchHeaderButton />,
+      }}
       drawerContent={(props) => <CustomDrawerContent {...props} />}>
       <Drawer.Screen
         name="index"
-        options={{ title: 'Journal', headerRight: () => <StatPill /> }}
+        options={{
+          title: 'Journal',
+          headerRight: () => (
+            <View className="flex-row items-center gap-2 pr-1">
+              <StatPill />
+              <SearchHeaderButton />
+            </View>
+          ),
+        }}
       />
       <Drawer.Screen name="affirmations" options={{ title: 'Reminders' }} />
       <Drawer.Screen name="bucket" options={{ title: 'Bucket list' }} />
@@ -160,6 +173,17 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
         />
       </View>
     </View>
+  );
+}
+
+function SearchHeaderButton() {
+  return (
+    <Pressable
+      onPress={() => router.push('/search')}
+      hitSlop={8}
+      className="px-3 py-2 active:opacity-60">
+      <Icon as={SearchIcon} size={20} className="text-foreground" />
+    </Pressable>
   );
 }
 
