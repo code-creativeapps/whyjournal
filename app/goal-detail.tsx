@@ -1,5 +1,15 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { CalendarIcon, CheckIcon, GiftIcon, PencilIcon, RotateCcwIcon, TargetIcon, XIcon } from 'lucide-react-native';
+import {
+  CalendarIcon,
+  CheckIcon,
+  GiftIcon,
+  PencilIcon,
+  RepeatIcon,
+  RotateCcwIcon,
+  SparklesIcon,
+  TargetIcon,
+  XIcon,
+} from 'lucide-react-native';
 import * as React from 'react';
 import { Dimensions, Pressable, ScrollView, View } from 'react-native';
 import ConfettiCannon from 'react-native-confetti-cannon';
@@ -10,11 +20,19 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { celebrateGoal, onCelebrateGoal } from '@/lib/celebrate';
 import { goalProgress } from '@/lib/goals/progress';
+import { goalVelocity } from '@/lib/goals/velocity';
+import type { Habit } from '@/lib/habits/types';
 import { useGoalsStore } from '@/lib/stores/goals';
+import { useHabitCompletionsStore } from '@/lib/stores/habit-completions';
+import { useHabitsStore } from '@/lib/stores/habits';
 import { useMilestonesStore } from '@/lib/stores/milestones';
+import { useTodosStore } from '@/lib/stores/todos';
 import { cn } from '@/lib/utils';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
+const VELOCITY_DAYS = 14;
+
+type GoalTab = 'description' | 'milestones' | 'systems';
 
 export default function GoalDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -23,7 +41,11 @@ export default function GoalDetailScreen() {
   );
   const updateGoal = useGoalsStore((state) => state.updateItem);
   const allMilestones = useMilestonesStore((state) => state.items);
-  const [milestonesIntrinsicHeight, setMilestonesIntrinsicHeight] = React.useState(0);
+  const allTodos = useTodosStore((state) => state.items);
+  const allHabits = useHabitsStore((state) => state.items);
+  const allHabitCompletions = useHabitCompletionsStore((state) => state.items);
+
+  const [tab, setTab] = React.useState<GoalTab>('description');
 
   const milestones = React.useMemo(() => {
     if (!id) return [];
@@ -40,6 +62,26 @@ export default function GoalDetailScreen() {
     () => (goal ? goalProgress(goal, milestones) : null),
     [goal, milestones]
   );
+
+  const habitsForGoal = React.useMemo(() => {
+    if (!id) return [];
+    return allHabits
+      .filter((h) => h.goalId === id)
+      .slice()
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }, [allHabits, id]);
+
+  const velocity = React.useMemo(() => {
+    if (!id) return [];
+    return goalVelocity({
+      goalId: id,
+      milestones: allMilestones,
+      todos: allTodos,
+      habits: allHabits,
+      habitCompletions: allHabitCompletions,
+      days: VELOCITY_DAYS,
+    });
+  }, [id, allMilestones, allTodos, allHabits, allHabitCompletions]);
 
   // Each celebration bumps this counter; ConfettiCannon is mounted with that
   // counter as a key so it remounts fresh and auto-starts. Avoids the un-fired
@@ -128,100 +170,19 @@ export default function GoalDetailScreen() {
           ) : null}
         </View>
 
-        {goal.why ? (
-          <View className="gap-1">
-            <Text variant="muted" className="text-xs uppercase tracking-wide">
-              Why it matters
-            </Text>
-            <Text className="text-base leading-6">{goal.why}</Text>
-          </View>
-        ) : null}
+        <SegmentedTab value={tab} onChange={setTab} />
 
-        {goal.reward ? (
-          <View className="gap-1">
-            <Text variant="muted" className="text-xs uppercase tracking-wide">
-              Reward
-            </Text>
-            <View className="flex-row items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
-              <Icon as={GiftIcon} size={18} className="text-amber-500" />
-              <Text className="flex-1 text-base leading-6">{goal.reward}</Text>
-            </View>
-          </View>
+        {tab === 'description' ? (
+          <DescriptionTab goal={goal} velocity={velocity} />
         ) : null}
-
-        {hasMilestones ? (
-          <View className="gap-2">
-            <View className="h-2 overflow-hidden rounded-full bg-muted">
-              <View
-                className="h-full rounded-full bg-red-500"
-                style={{ width: `${Math.round(progress.ratio * 100)}%` }}
-              />
-            </View>
-            <Text variant="muted" className="text-xs">
-              {progress.done} / {progress.total} milestones
-            </Text>
-          </View>
+        {tab === 'milestones' ? (
+          <MilestonesTab
+            milestones={milestones}
+            progress={progress}
+            hasMilestones={hasMilestones}
+          />
         ) : null}
-
-        <View className="gap-2">
-          <Text variant="muted" className="text-xs uppercase tracking-wide">
-            Milestones
-          </Text>
-          {hasMilestones ? (
-            <ScrollView
-              style={
-                milestonesIntrinsicHeight > 0
-                  ? { maxHeight: milestonesIntrinsicHeight / 2 }
-                  : undefined
-              }
-              nestedScrollEnabled
-              className="overflow-hidden rounded-xl border border-border">
-              <View
-                onLayout={(e) =>
-                  setMilestonesIntrinsicHeight((prev) =>
-                    prev > 0 ? prev : e.nativeEvent.layout.height
-                  )
-                }>
-              {milestones.map((m, idx) => (
-                <React.Fragment key={m.id}>
-                  {idx > 0 ? <View className="h-px bg-border" /> : null}
-                  <Pressable
-                    onPress={() =>
-                      router.push({
-                        pathname: '/milestone-detail',
-                        params: { id: m.id },
-                      })
-                    }
-                    className="flex-row items-center gap-3 px-3 py-3 active:bg-accent">
-                    <View
-                      className={cn(
-                        'size-6 items-center justify-center rounded-full',
-                        m.done ? 'bg-green-500' : 'bg-pink-400/15'
-                      )}>
-                      <Icon
-                        as={TargetIcon}
-                        size={14}
-                        className={m.done ? 'text-white' : 'text-pink-400'}
-                      />
-                    </View>
-                    <Text
-                      className={cn(
-                        'flex-1 text-base',
-                        m.done && 'text-muted-foreground line-through'
-                      )}>
-                      {m.title}
-                    </Text>
-                  </Pressable>
-                </React.Fragment>
-              ))}
-              </View>
-            </ScrollView>
-          ) : (
-            <Text variant="muted" className="text-sm">
-              No milestones yet. Tap Edit to add some.
-            </Text>
-          )}
-        </View>
+        {tab === 'systems' ? <SystemsTab habits={habitsForGoal} /> : null}
 
         <View className="mt-2">
           {goal.done ? (
@@ -260,4 +221,255 @@ export default function GoalDetailScreen() {
       ) : null}
     </>
   );
+}
+
+const TABS: { value: GoalTab; label: string }[] = [
+  { value: 'description', label: 'Description' },
+  { value: 'milestones', label: 'Milestones' },
+  { value: 'systems', label: 'Systems' },
+];
+
+function SegmentedTab({
+  value,
+  onChange,
+}: {
+  value: GoalTab;
+  onChange: (v: GoalTab) => void;
+}) {
+  return (
+    <View className="flex-row rounded-full bg-muted p-1">
+      {TABS.map((t) => {
+        const active = value === t.value;
+        return (
+          <Pressable
+            key={t.value}
+            onPress={() => onChange(t.value)}
+            className={cn(
+              'flex-1 items-center rounded-full py-1.5',
+              active && 'bg-background shadow-sm'
+            )}>
+            <Text
+              className={cn(
+                'text-sm font-medium',
+                active ? 'text-foreground' : 'text-muted-foreground'
+              )}>
+              {t.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function DescriptionTab({
+  goal,
+  velocity,
+}: {
+  goal: { body?: string; why?: string; reward?: string };
+  velocity: { date: string; count: number }[];
+}) {
+  const hasAny = Boolean(goal.body || goal.why || goal.reward);
+
+  return (
+    <View className="gap-6">
+      {goal.body ? (
+        <View className="gap-1">
+          <Text variant="muted" className="text-xs uppercase tracking-wide">
+            Vivid description
+          </Text>
+          <Text className="text-base leading-6">{goal.body}</Text>
+        </View>
+      ) : null}
+
+      {goal.why ? (
+        <View className="gap-1">
+          <Text variant="muted" className="text-xs uppercase tracking-wide">
+            Why it matters
+          </Text>
+          <Text className="text-base leading-6">{goal.why}</Text>
+        </View>
+      ) : null}
+
+      {goal.reward ? (
+        <View className="gap-1">
+          <Text variant="muted" className="text-xs uppercase tracking-wide">
+            Reward
+          </Text>
+          <View className="flex-row items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+            <Icon as={GiftIcon} size={18} className="text-amber-500" />
+            <Text className="flex-1 text-base leading-6">{goal.reward}</Text>
+          </View>
+        </View>
+      ) : null}
+
+      {!hasAny ? (
+        <Text variant="muted" className="text-sm">
+          No description yet. Tap Edit to add one.
+        </Text>
+      ) : null}
+
+      <VelocityChart days={velocity} />
+    </View>
+  );
+}
+
+function VelocityChart({ days }: { days: { date: string; count: number }[] }) {
+  const max = days.reduce((m, d) => Math.max(m, d.count), 0);
+  const total = days.reduce((s, d) => s + d.count, 0);
+
+  return (
+    <View className="gap-2">
+      <View className="flex-row items-center gap-1.5">
+        <Icon as={SparklesIcon} size={13} className="text-muted-foreground" />
+        <Text variant="muted" className="text-xs uppercase tracking-wide">
+          Velocity · last {days.length} days
+        </Text>
+      </View>
+      {total === 0 ? (
+        <Text variant="muted" className="text-sm">
+          No activity yet — complete a milestone, todo, or linked habit.
+        </Text>
+      ) : (
+        <View className="gap-1.5">
+          <View className="h-20 flex-row items-end gap-1">
+            {days.map((d) => {
+              const ratio = max > 0 ? d.count / max : 0;
+              const heightPct = d.count === 0 ? 0 : Math.max(8, ratio * 100);
+              return (
+                <View key={d.date} className="flex-1 justify-end">
+                  <View
+                    className={cn(
+                      'rounded-sm',
+                      d.count > 0 ? 'bg-red-500/70' : 'bg-muted'
+                    )}
+                    style={{ height: d.count === 0 ? 4 : `${heightPct}%` }}
+                  />
+                </View>
+              );
+            })}
+          </View>
+          <Text variant="muted" className="text-xs">
+            {total} action{total === 1 ? '' : 's'} · best day {max}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function MilestonesTab({
+  milestones,
+  progress,
+  hasMilestones,
+}: {
+  milestones: ReturnType<typeof useMilestonesStore.getState>['items'];
+  progress: { done: number; total: number; ratio: number };
+  hasMilestones: boolean;
+}) {
+  if (!hasMilestones) {
+    return (
+      <Text variant="muted" className="text-sm">
+        No milestones yet. Tap Edit to add some.
+      </Text>
+    );
+  }
+  return (
+    <View className="gap-4">
+      <View className="gap-2">
+        <View className="h-2 overflow-hidden rounded-full bg-muted">
+          <View
+            className="h-full rounded-full bg-red-500"
+            style={{ width: `${Math.round(progress.ratio * 100)}%` }}
+          />
+        </View>
+        <Text variant="muted" className="text-xs">
+          {progress.done} / {progress.total} milestones
+        </Text>
+      </View>
+
+      <View className="overflow-hidden rounded-xl border border-border">
+        {milestones.map((m, idx) => (
+          <React.Fragment key={m.id}>
+            {idx > 0 ? <View className="h-px bg-border" /> : null}
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: '/milestone-detail',
+                  params: { id: m.id },
+                })
+              }
+              className="flex-row items-center gap-3 px-3 py-3 active:bg-accent">
+              <View
+                className={cn(
+                  'size-6 items-center justify-center rounded-full',
+                  m.done ? 'bg-green-500' : 'bg-pink-400/15'
+                )}>
+                <Icon
+                  as={TargetIcon}
+                  size={14}
+                  className={m.done ? 'text-white' : 'text-pink-400'}
+                />
+              </View>
+              <Text
+                className={cn(
+                  'flex-1 text-base',
+                  m.done && 'text-muted-foreground line-through'
+                )}>
+                {m.title}
+              </Text>
+            </Pressable>
+          </React.Fragment>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function SystemsTab({ habits }: { habits: Habit[] }) {
+  if (habits.length === 0) {
+    return (
+      <Text variant="muted" className="text-sm">
+        No habits linked to this goal. Edit a habit to attach it.
+      </Text>
+    );
+  }
+  return (
+    <View className="overflow-hidden rounded-xl border border-border">
+      {habits.map((h, idx) => (
+        <React.Fragment key={h.id}>
+          {idx > 0 ? <View className="h-px bg-border" /> : null}
+          <Pressable
+            onPress={() =>
+              router.push({ pathname: '/habit-detail', params: { id: h.id } })
+            }
+            className="flex-row items-center gap-3 px-3 py-3 active:bg-accent">
+            <View className="size-6 items-center justify-center rounded-full bg-violet-500/15">
+              <Icon as={RepeatIcon} size={14} className="text-violet-500" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-base">{h.title}</Text>
+              <Text variant="muted" className="text-xs">
+                {describeHabitFrequency(h)}
+              </Text>
+            </View>
+          </Pressable>
+        </React.Fragment>
+      ))}
+    </View>
+  );
+}
+
+function describeHabitFrequency(h: Habit): string {
+  const times =
+    h.timesPerPeriod === 1 ? '' : ` · ${h.timesPerPeriod}× per ${h.frequencyKind === 'daily' ? 'day' : 'week'}`;
+  if (h.frequencyKind === 'weekly') return `Weekly${times}`;
+  if (h.daysOfWeek.length === 7) return `Daily${times}`;
+  const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const days = h.daysOfWeek
+    .slice()
+    .sort((a, b) => a - b)
+    .map((d) => labels[d])
+    .join(', ');
+  return `${days}${times}`;
 }

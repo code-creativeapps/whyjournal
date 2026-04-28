@@ -52,6 +52,7 @@ export default function GoalFormScreen() {
   );
 
   const [title, setTitle] = React.useState(existing?.title ?? '');
+  const [body, setBody] = React.useState(existing?.body ?? '');
   const [why, setWhy] = React.useState(existing?.why ?? '');
   const [reward, setReward] = React.useState(existing?.reward ?? '');
   const [targetDate, setTargetDate] = React.useState(existing?.targetDate ?? '');
@@ -75,6 +76,7 @@ export default function GoalFormScreen() {
     try {
       const goalPayload: Partial<Goal> = {
         title: title.trim(),
+        body: body.trim() || undefined,
         why: why.trim() || undefined,
         reward: reward.trim() || undefined,
         targetDate: targetDate.trim() || undefined,
@@ -190,6 +192,20 @@ export default function GoalFormScreen() {
               placeholder="e.g. Run a half marathon"
               autoFocus={!isEditing}
               returnKeyType="next"
+            />
+          </Field>
+
+          <Field
+            label="Vivid description"
+            hint="Describe success in detail — what does it look, feel, and sound like?">
+            <TextInput
+              value={body}
+              onChangeText={setBody}
+              placeholder="Paint the picture of what done looks like"
+              placeholderTextColor="#9ca3af"
+              multiline
+              textAlignVertical="top"
+              className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-base text-foreground"
             />
           </Field>
 

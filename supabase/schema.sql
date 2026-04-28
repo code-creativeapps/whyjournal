@@ -52,6 +52,7 @@ create table if not exists public.goals (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   title text not null,
+  body text,
   why text,
   reward text,
   target_date text,
@@ -197,6 +198,7 @@ end $$;
 -- Idempotent migration for existing databases
 -- =============================================================================
 alter table public.goals add column if not exists reward text;
+alter table public.goals add column if not exists body text;
 alter table public.todos add column if not exists due_at date;
 create index if not exists todos_user_due_idx on public.todos (user_id, due_at);
 
