@@ -65,6 +65,18 @@ export default function GoalsScreen() {
     return map;
   }, [items]);
 
+  const sortedMilestones = React.useMemo(() => {
+    const out: Milestone[] = [];
+    for (const g of items) {
+      const list = milestonesByGoal.get(g.id);
+      if (list) out.push(...list);
+    }
+    for (const m of milestones) {
+      if (!goalsById.has(m.goalId)) out.push(m);
+    }
+    return out;
+  }, [items, milestones, milestonesByGoal, goalsById]);
+
   return (
     <SwipeableScreen route="goals">
       <View className="flex-1">
@@ -82,7 +94,7 @@ export default function GoalsScreen() {
             />
           ) : (
             <MilestonesList
-              milestones={milestones}
+              milestones={sortedMilestones}
               goalsById={goalsById}
               paddingBottom={insets.bottom + 96}
             />

@@ -23,6 +23,7 @@ export default function GoalDetailScreen() {
   );
   const updateGoal = useGoalsStore((state) => state.updateItem);
   const allMilestones = useMilestonesStore((state) => state.items);
+  const [milestonesIntrinsicHeight, setMilestonesIntrinsicHeight] = React.useState(0);
 
   const milestones = React.useMemo(() => {
     if (!id) return [];
@@ -167,7 +168,20 @@ export default function GoalDetailScreen() {
             Milestones
           </Text>
           {hasMilestones ? (
-            <View className="overflow-hidden rounded-xl border border-border">
+            <ScrollView
+              style={
+                milestonesIntrinsicHeight > 0
+                  ? { maxHeight: milestonesIntrinsicHeight / 2 }
+                  : undefined
+              }
+              nestedScrollEnabled
+              className="overflow-hidden rounded-xl border border-border">
+              <View
+                onLayout={(e) =>
+                  setMilestonesIntrinsicHeight((prev) =>
+                    prev > 0 ? prev : e.nativeEvent.layout.height
+                  )
+                }>
               {milestones.map((m, idx) => (
                 <React.Fragment key={m.id}>
                   {idx > 0 ? <View className="h-px bg-border" /> : null}
@@ -200,7 +214,8 @@ export default function GoalDetailScreen() {
                   </Pressable>
                 </React.Fragment>
               ))}
-            </View>
+              </View>
+            </ScrollView>
           ) : (
             <Text variant="muted" className="text-sm">
               No milestones yet. Tap Edit to add some.

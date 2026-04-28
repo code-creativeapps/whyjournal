@@ -154,8 +154,10 @@ create table if not exists public.todos (
   created_at timestamptz not null default now()
 );
 create index if not exists todos_user_created_idx on public.todos (user_id, created_at desc);
-create index if not exists todos_goal_idx on public.todos (goal_id);
-create index if not exists todos_milestone_idx on public.todos (milestone_id);
+-- Note: todos_goal_idx / todos_milestone_idx are created in the migration block
+-- below, AFTER the alter table statements that add those columns to existing
+-- databases. Creating them here would fail when re-running on an old DB whose
+-- todos table predates the goal_id / milestone_id columns.
 
 -- =============================================================================
 -- Row-Level Security: every read/write is scoped to the authenticated user.
@@ -194,8 +196,6 @@ end $$;
 -- =============================================================================
 -- Idempotent migration for existing databases
 -- =============================================================================
-alter table public.todos drop column if exists goal_id;
-drop index if exists todos_goal_idx;
 alter table public.goals add column if not exists reward text;
 alter table public.todos add column if not exists due_at date;
 create index if not exists todos_user_due_idx on public.todos (user_id, due_at);
