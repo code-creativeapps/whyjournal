@@ -24,7 +24,10 @@ import { cn } from '@/lib/utils';
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function HabitFormScreen() {
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id, goalId: prefillGoalId } = useLocalSearchParams<{
+    id?: string;
+    goalId?: string;
+  }>();
   const existing = useHabitsStore((s) =>
     id ? (s.items.find((h) => h.id === id) as Habit | undefined) : undefined
   );
@@ -51,7 +54,9 @@ export default function HabitFormScreen() {
     existing?.daysOfWeek ?? [0, 1, 2, 3, 4, 5, 6]
   );
   const [routineId, setRoutineId] = React.useState<string | undefined>(existing?.routineId);
-  const [goalId, setGoalId] = React.useState<string | undefined>(existing?.goalId);
+  const [goalId, setGoalId] = React.useState<string | undefined>(
+    existing?.goalId ?? prefillGoalId
+  );
   const [saving, setSaving] = React.useState(false);
 
   const parsedCount = Math.max(1, parseInt(count, 10) || 1);

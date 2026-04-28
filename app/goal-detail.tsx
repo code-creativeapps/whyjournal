@@ -4,6 +4,7 @@ import {
   CheckIcon,
   GiftIcon,
   PencilIcon,
+  PlusIcon,
   RepeatIcon,
   RotateCcwIcon,
   SparklesIcon,
@@ -13,9 +14,17 @@ import {
 import * as React from 'react';
 import { Dimensions, Pressable, ScrollView, View } from 'react-native';
 import ConfettiCannon from 'react-native-confetti-cannon';
+import {
+  BottomSheetBackdrop,
+  BottomSheetModal,
+  BottomSheetModalProvider,
+  BottomSheetScrollView,
+  type BottomSheetBackdropProps,
+} from '@gorhom/bottom-sheet';
 
 import { AnimatedBorder } from '@/components/animated-border';
 import { HoldToConfirmButton } from '@/components/hold-to-confirm-button';
+import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { celebrateGoal, onCelebrateGoal } from '@/lib/celebrate';
@@ -177,12 +186,15 @@ export default function GoalDetailScreen() {
         ) : null}
         {tab === 'milestones' ? (
           <MilestonesTab
+            goalId={goal.id}
             milestones={milestones}
             progress={progress}
             hasMilestones={hasMilestones}
           />
         ) : null}
-        {tab === 'systems' ? <SystemsTab habits={habitsForGoal} /> : null}
+        {tab === 'systems' ? (
+          <SystemsTab goalId={goal.id} habits={habitsForGoal} />
+        ) : null}
 
         <View className="mt-2">
           {goal.done ? (
@@ -359,104 +371,243 @@ function VelocityChart({ days }: { days: { date: string; count: number }[] }) {
 }
 
 function MilestonesTab({
+  goalId,
   milestones,
   progress,
   hasMilestones,
 }: {
+  goalId: string;
   milestones: ReturnType<typeof useMilestonesStore.getState>['items'];
   progress: { done: number; total: number; ratio: number };
   hasMilestones: boolean;
 }) {
-  if (!hasMilestones) {
-    return (
-      <Text variant="muted" className="text-sm">
-        No milestones yet. Tap Edit to add some.
-      </Text>
-    );
-  }
   return (
     <View className="gap-4">
-      <View className="gap-2">
-        <View className="h-2 overflow-hidden rounded-full bg-muted">
-          <View
-            className="h-full rounded-full bg-red-500"
-            style={{ width: `${Math.round(progress.ratio * 100)}%` }}
-          />
-        </View>
-        <Text variant="muted" className="text-xs">
-          {progress.done} / {progress.total} milestones
-        </Text>
-      </View>
-
-      <View className="overflow-hidden rounded-xl border border-border">
-        {milestones.map((m, idx) => (
-          <React.Fragment key={m.id}>
-            {idx > 0 ? <View className="h-px bg-border" /> : null}
-            <Pressable
-              onPress={() =>
-                router.push({
-                  pathname: '/milestone-detail',
-                  params: { id: m.id },
-                })
-              }
-              className="flex-row items-center gap-3 px-3 py-3 active:bg-accent">
+      {hasMilestones ? (
+        <>
+          <View className="gap-2">
+            <View className="h-2 overflow-hidden rounded-full bg-muted">
               <View
-                className={cn(
-                  'size-6 items-center justify-center rounded-full',
-                  m.done ? 'bg-green-500' : 'bg-pink-400/15'
-                )}>
-                <Icon
-                  as={TargetIcon}
-                  size={14}
-                  className={m.done ? 'text-white' : 'text-pink-400'}
-                />
-              </View>
-              <Text
-                className={cn(
-                  'flex-1 text-base',
-                  m.done && 'text-muted-foreground line-through'
-                )}>
-                {m.title}
-              </Text>
-            </Pressable>
-          </React.Fragment>
-        ))}
-      </View>
+                className="h-full rounded-full bg-red-500"
+                style={{ width: `${Math.round(progress.ratio * 100)}%` }}
+              />
+            </View>
+            <Text variant="muted" className="text-xs">
+              {progress.done} / {progress.total} milestones
+            </Text>
+          </View>
+
+          <View className="overflow-hidden rounded-xl border border-border">
+            {milestones.map((m, idx) => (
+              <React.Fragment key={m.id}>
+                {idx > 0 ? <View className="h-px bg-border" /> : null}
+                <Pressable
+                  onPress={() =>
+                    router.push({
+                      pathname: '/milestone-detail',
+                      params: { id: m.id },
+                    })
+                  }
+                  className="flex-row items-center gap-3 px-3 py-3 active:bg-accent">
+                  <View
+                    className={cn(
+                      'size-6 items-center justify-center rounded-full',
+                      m.done ? 'bg-green-500' : 'bg-pink-400/15'
+                    )}>
+                    <Icon
+                      as={TargetIcon}
+                      size={14}
+                      className={m.done ? 'text-white' : 'text-pink-400'}
+                    />
+                  </View>
+                  <Text
+                    className={cn(
+                      'flex-1 text-base',
+                      m.done && 'text-muted-foreground line-through'
+                    )}>
+                    {m.title}
+                  </Text>
+                </Pressable>
+              </React.Fragment>
+            ))}
+          </View>
+        </>
+      ) : (
+        <Text variant="muted" className="text-sm">
+          No milestones yet — add the first step.
+        </Text>
+      )}
+
+      <Button
+        variant="outline"
+        onPress={() =>
+          router.push({ pathname: '/milestone', params: { goalId } })
+        }>
+        <Icon as={PlusIcon} className="text-foreground" />
+        <Text>Add milestone</Text>
+      </Button>
     </View>
   );
 }
 
-function SystemsTab({ habits }: { habits: Habit[] }) {
-  if (habits.length === 0) {
-    return (
-      <Text variant="muted" className="text-sm">
-        No habits linked to this goal. Edit a habit to attach it.
-      </Text>
-    );
-  }
+function SystemsTab({ goalId, habits }: { goalId: string; habits: Habit[] }) {
+  const sheetRef = React.useRef<BottomSheetModal>(null);
+  const allHabits = useHabitsStore((s) => s.items);
+  const allGoals = useGoalsStore((s) => s.items);
+  const updateHabit = useHabitsStore((s) => s.updateItem);
+
+  const attachable = React.useMemo(
+    () => allHabits.filter((h) => h.goalId !== goalId),
+    [allHabits, goalId]
+  );
+
   return (
-    <View className="overflow-hidden rounded-xl border border-border">
-      {habits.map((h, idx) => (
-        <React.Fragment key={h.id}>
-          {idx > 0 ? <View className="h-px bg-border" /> : null}
-          <Pressable
-            onPress={() =>
-              router.push({ pathname: '/habit-detail', params: { id: h.id } })
-            }
-            className="flex-row items-center gap-3 px-3 py-3 active:bg-accent">
-            <View className="size-6 items-center justify-center rounded-full bg-violet-500/15">
-              <Icon as={RepeatIcon} size={14} className="text-violet-500" />
-            </View>
-            <View className="flex-1">
-              <Text className="text-base">{h.title}</Text>
-              <Text variant="muted" className="text-xs">
-                {describeHabitFrequency(h)}
+    <BottomSheetModalProvider>
+    <View className="gap-4">
+      {habits.length > 0 ? (
+        <View className="overflow-hidden rounded-xl border border-border">
+          {habits.map((h, idx) => (
+            <React.Fragment key={h.id}>
+              {idx > 0 ? <View className="h-px bg-border" /> : null}
+              <Pressable
+                onPress={() =>
+                  router.push({ pathname: '/habit-detail', params: { id: h.id } })
+                }
+                className="flex-row items-center gap-3 px-3 py-3 active:bg-accent">
+                <View className="size-6 items-center justify-center rounded-full bg-violet-500/15">
+                  <Icon as={RepeatIcon} size={14} className="text-violet-500" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-base">{h.title}</Text>
+                  <Text variant="muted" className="text-xs">
+                    {describeHabitFrequency(h)}
+                  </Text>
+                </View>
+              </Pressable>
+            </React.Fragment>
+          ))}
+        </View>
+      ) : (
+        <Text variant="muted" className="text-sm">
+          No habits linked yet — wire up a system that drives this goal.
+        </Text>
+      )}
+
+      <Button variant="outline" onPress={() => sheetRef.current?.present()}>
+        <Icon as={PlusIcon} className="text-foreground" />
+        <Text>Add habit</Text>
+      </Button>
+
+      <AttachHabitSheet
+        sheetRef={sheetRef}
+        goalId={goalId}
+        habits={attachable}
+        goals={allGoals}
+        onPick={async (habit) => {
+          await updateHabit(habit.id, { goalId });
+          sheetRef.current?.dismiss();
+        }}
+      />
+    </View>
+    </BottomSheetModalProvider>
+  );
+}
+
+function renderBackdrop(props: BottomSheetBackdropProps) {
+  return (
+    <BottomSheetBackdrop
+      {...props}
+      appearsOnIndex={0}
+      disappearsOnIndex={-1}
+      pressBehavior="close"
+    />
+  );
+}
+
+function AttachHabitSheet({
+  sheetRef,
+  goalId,
+  habits,
+  goals,
+  onPick,
+}: {
+  sheetRef: React.RefObject<BottomSheetModal | null>;
+  goalId: string;
+  habits: Habit[];
+  goals: { id: string; title: string }[];
+  onPick: (habit: Habit) => void;
+}) {
+  const goalLookup = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const g of goals) map.set(g.id, g.title);
+    return map;
+  }, [goals]);
+
+  return (
+    <BottomSheetModal
+      ref={sheetRef}
+      enableDynamicSizing
+      enablePanDownToClose
+      backdropComponent={renderBackdrop}
+      backgroundStyle={{ backgroundColor: 'hsl(0 0% 100%)' }}
+      handleIndicatorStyle={{ backgroundColor: 'rgba(120,120,120,0.4)' }}>
+      <BottomSheetScrollView contentContainerStyle={{ paddingBottom: 32 }}>
+        <View className="px-5 pb-4 pt-1">
+          <Text className="text-lg font-semibold">Add habit</Text>
+          <Text variant="muted" className="text-sm">
+            Pick an existing one to attach, or create a new one.
+          </Text>
+        </View>
+        <Pressable
+          onPress={() => {
+            sheetRef.current?.dismiss();
+            router.push({ pathname: '/habit', params: { goalId } });
+          }}
+          className="flex-row items-center gap-3 px-5 py-3 active:bg-accent">
+          <View className="size-9 items-center justify-center rounded-full bg-primary">
+            <Icon as={PlusIcon} size={18} className="text-primary-foreground" />
+          </View>
+          <View className="flex-1">
+            <Text className="text-base font-medium">Create new habit</Text>
+            <Text variant="muted" className="text-xs">
+              Linked to this goal automatically
+            </Text>
+          </View>
+        </Pressable>
+        {habits.length > 0 ? (
+          <>
+            <View className="mt-2 h-px bg-border" />
+            <View className="px-5 py-3">
+              <Text variant="muted" className="text-xs uppercase tracking-wide">
+                Existing habits
               </Text>
             </View>
-          </Pressable>
-        </React.Fragment>
-      ))}
-    </View>
+          </>
+        ) : null}
+        {habits.map((h, idx) => {
+          const currentGoal = h.goalId ? goalLookup.get(h.goalId) : null;
+          return (
+            <React.Fragment key={h.id}>
+              {idx > 0 ? <View className="ml-16 h-px bg-border" /> : null}
+              <Pressable
+                onPress={() => onPick(h)}
+                className="flex-row items-center gap-3 px-5 py-3 active:bg-accent">
+                <View className="size-9 items-center justify-center rounded-full bg-violet-500/15">
+                  <Icon as={RepeatIcon} size={18} className="text-violet-500" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-base">{h.title}</Text>
+                  <Text variant="muted" className="text-xs">
+                    {describeHabitFrequency(h)}
+                    {currentGoal ? ` · currently: ${currentGoal}` : ''}
+                  </Text>
+                </View>
+              </Pressable>
+            </React.Fragment>
+          );
+        })}
+      </BottomSheetScrollView>
+    </BottomSheetModal>
   );
 }
 

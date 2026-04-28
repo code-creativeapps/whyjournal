@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
+    "@gorhom/bottom-sheet": "^5.2.10",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "8.4.4",
     "@react-navigation/drawer": "^7.9.8",
