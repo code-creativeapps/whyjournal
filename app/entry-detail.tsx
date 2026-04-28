@@ -1,11 +1,12 @@
 import { format } from 'date-fns';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { CheckIcon, HeartIcon, PencilIcon, XIcon } from 'lucide-react-native';
+import { PencilIcon, XIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { ENTRY_VISUALS } from '@/lib/entries/visuals';
 import { useEntriesStore } from '@/lib/stores/entries';
 import { cn } from '@/lib/utils';
 
@@ -21,14 +22,13 @@ export default function EntryDetailScreen() {
 
   if (!entry) return null;
 
-  const isWin = entry.type === 'win';
-  const screenTitle = isWin ? 'Win' : 'Gratitude';
+  const visual = ENTRY_VISUALS[entry.type];
 
   return (
     <>
       <Stack.Screen
         options={{
-          title: screenTitle,
+          title: visual.label,
           headerLeft: () => (
             <Pressable onPress={() => router.back()} hitSlop={8} className="px-2">
               <Icon as={XIcon} size={20} className="text-foreground" />
@@ -50,13 +50,9 @@ export default function EntryDetailScreen() {
           <View
             className={cn(
               'size-20 items-center justify-center rounded-full',
-              isWin ? 'bg-green-500/15' : 'bg-pink-500/15'
+              visual.badgeBgClass
             )}>
-            <Icon
-              as={isWin ? CheckIcon : HeartIcon}
-              size={40}
-              className={isWin ? 'text-green-600' : 'text-pink-600'}
-            />
+            <Icon as={visual.icon} size={40} className={visual.iconColorClass} />
           </View>
           <Text variant="h2" className="text-center">
             {entry.title}

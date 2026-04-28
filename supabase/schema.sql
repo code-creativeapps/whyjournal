@@ -7,12 +7,12 @@
 create extension if not exists "pgcrypto";
 
 -- =============================================================================
--- entries (journal: wins + gratitudes)
+-- entries (journal: wins + gratitudes + confirmations)
 -- =============================================================================
 create table if not exists public.entries (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  type text not null check (type in ('win', 'gratitude')),
+  type text not null check (type in ('win', 'gratitude', 'confirmation')),
   title text not null,
   body text,
   created_at timestamptz not null default now()
@@ -191,3 +191,8 @@ drop index if exists todos_goal_idx;
 alter table public.goals add column if not exists reward text;
 alter table public.todos add column if not exists due_at date;
 create index if not exists todos_user_due_idx on public.todos (user_id, due_at);
+
+-- entries.type: widen the allowed set to include 'confirmation'.
+alter table public.entries drop constraint if exists entries_type_check;
+alter table public.entries add constraint entries_type_check
+  check (type in ('win', 'gratitude', 'confirmation'));

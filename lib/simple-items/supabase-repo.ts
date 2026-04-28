@@ -20,6 +20,11 @@ const DEFAULT_MAP: ColumnMap = {
   targetDate: 'target_date',
   goalId: 'goal_id',
   dueAt: 'due_at',
+  routineId: 'routine_id',
+  habitId: 'habit_id',
+  frequencyKind: 'frequency_kind',
+  timesPerPeriod: 'times_per_period',
+  daysOfWeek: 'days_of_week',
 };
 
 export function createSupabaseRepository<T extends BaseItem>(

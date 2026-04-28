@@ -21,9 +21,17 @@ type Props = {
   onConfirm: () => void;
   /** How long the user must hold for the action to fire. */
   durationMs?: number;
+  /** When true, suppress the press-and-hold completion sound. */
+  silent?: boolean;
 };
 
-export function HoldToConfirmButton({ label, icon, onConfirm, durationMs = 3000 }: Props) {
+export function HoldToConfirmButton({
+  label,
+  icon,
+  onConfirm,
+  durationMs = 3000,
+  silent = false,
+}: Props) {
   const progress = useSharedValue(0);
 
   const fillStyle = useAnimatedStyle(() => ({
@@ -37,7 +45,7 @@ export function HoldToConfirmButton({ label, icon, onConfirm, durationMs = 3000 
 
   function startPress() {
     Haptics.selectionAsync().catch(() => {});
-    startCompletionSound();
+    if (!silent) startCompletionSound();
     progress.value = withTiming(
       1,
       { duration: durationMs, easing: Easing.linear },
@@ -50,7 +58,7 @@ export function HoldToConfirmButton({ label, icon, onConfirm, durationMs = 3000 
   function cancelPress() {
     cancelAnimation(progress);
     progress.value = withTiming(0, { duration: 200 });
-    stopCompletionSound();
+    if (!silent) stopCompletionSound();
   }
 
   return (

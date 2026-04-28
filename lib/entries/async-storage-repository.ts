@@ -32,7 +32,7 @@ export const asyncStorageEntriesRepository: EntriesRepository = {
       type: input.type,
       title: input.title,
       body: input.body,
-      createdAt: new Date().toISOString(),
+      createdAt: input.createdAt ?? new Date().toISOString(),
     };
     const existing = await readAll();
     await writeAll([entry, ...existing]);

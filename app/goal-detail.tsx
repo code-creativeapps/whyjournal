@@ -1,16 +1,20 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { CalendarIcon, CheckIcon, GiftIcon, PencilIcon, TargetIcon, XIcon } from 'lucide-react-native';
+import { CalendarIcon, CheckIcon, GiftIcon, PencilIcon, RotateCcwIcon, TargetIcon, XIcon } from 'lucide-react-native';
 import * as React from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Dimensions, Pressable, ScrollView, View } from 'react-native';
+import ConfettiCannon from 'react-native-confetti-cannon';
 
 import { AnimatedBorder } from '@/components/animated-border';
 import { HoldToConfirmButton } from '@/components/hold-to-confirm-button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { celebrateGoal, onCelebrateGoal } from '@/lib/celebrate';
 import { goalProgress } from '@/lib/goals/progress';
 import { useGoalsStore } from '@/lib/stores/goals';
 import { useMilestonesStore } from '@/lib/stores/milestones';
 import { cn } from '@/lib/utils';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export default function GoalDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -30,6 +34,16 @@ export default function GoalDetailScreen() {
     [goal, milestones]
   );
 
+  // Each celebration bumps this counter; ConfettiCannon is mounted with that
+  // counter as a key so it remounts fresh and auto-starts. Avoids the un-fired
+  // cannon's stacked confetti pieces showing as a visual glitch on the screen.
+  const [confettiTrigger, setConfettiTrigger] = React.useState(0);
+
+  React.useEffect(
+    () => onCelebrateGoal(() => setConfettiTrigger((t) => t + 1)),
+    []
+  );
+
   React.useEffect(() => {
     if (id && !goal && router.canGoBack()) router.back();
   }, [id, goal]);
@@ -43,6 +57,15 @@ export default function GoalDetailScreen() {
     updateGoal(goal.id, {
       done: true,
       completedAt: new Date().toISOString(),
+    });
+    celebrateGoal();
+  }
+
+  function handleMarkNotCompleted() {
+    if (!goal) return;
+    updateGoal(goal.id, {
+      done: false,
+      completedAt: undefined,
     });
   }
 
@@ -74,7 +97,10 @@ export default function GoalDetailScreen() {
           </View>
           <Text
             variant="h2"
-            className={cn('text-center', goal.done && 'text-muted-foreground line-through')}>
+            className={cn(
+              'border-b-0 pb-0 text-center',
+              goal.done && 'text-muted-foreground line-through'
+            )}>
             {goal.title}
           </Text>
           {goal.targetDate ? (
@@ -163,13 +189,18 @@ export default function GoalDetailScreen() {
           )}
         </View>
 
-        {goal.done ? (
-          <View className="flex-row items-center gap-2 self-start rounded-full bg-green-500/15 px-3 py-1.5">
-            <Icon as={CheckIcon} size={14} className="text-green-600" />
-            <Text className="text-sm font-semibold text-green-700">Completed</Text>
-          </View>
-        ) : (
-          <View className="mt-2">
+        <View className="mt-2">
+          {goal.done ? (
+            // Match outer height of AnimatedBorder (which adds 2pt padding all around).
+            <View style={{ padding: 2 }}>
+              <HoldToConfirmButton
+                label="Hold to mark as not completed"
+                icon={RotateCcwIcon}
+                onConfirm={handleMarkNotCompleted}
+                silent
+              />
+            </View>
+          ) : (
             <AnimatedBorder>
               <HoldToConfirmButton
                 label="Hold to mark as completed"
@@ -177,9 +208,22 @@ export default function GoalDetailScreen() {
                 onConfirm={handleMarkCompleted}
               />
             </AnimatedBorder>
-          </View>
-        )}
+          )}
+        </View>
       </ScrollView>
+      {confettiTrigger > 0 ? (
+        <View pointerEvents="none" className="absolute inset-0">
+          <ConfettiCannon
+            key={confettiTrigger}
+            count={120}
+            origin={{ x: SCREEN_WIDTH / 2, y: -10 }}
+            autoStart
+            fadeOut
+            explosionSpeed={350}
+            fallSpeed={2800}
+          />
+        </View>
+      ) : null}
     </>
   );
 }

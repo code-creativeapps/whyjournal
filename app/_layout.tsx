@@ -16,8 +16,11 @@ import { useEntriesStore } from '@/lib/stores/entries';
 import { useAffirmationsStore } from '@/lib/stores/affirmations';
 import { useBucketStore } from '@/lib/stores/bucket';
 import { useGoalsStore } from '@/lib/stores/goals';
+import { useHabitCompletionsStore } from '@/lib/stores/habit-completions';
+import { useHabitsStore } from '@/lib/stores/habits';
 import { useMilestonesStore } from '@/lib/stores/milestones';
 import { useOnboardingStore } from '@/lib/stores/onboarding';
+import { useRoutinesStore } from '@/lib/stores/routines';
 import { useTodosStore } from '@/lib/stores/todos';
 import { useTrophiesStore } from '@/lib/stores/trophies';
 import { NAV_THEME } from '@/lib/theme';
@@ -49,6 +52,9 @@ export default function RootLayout() {
       useBucketStore.getState().reset();
       useGoalsStore.getState().reset();
       useMilestonesStore.getState().reset();
+      useRoutinesStore.getState().reset();
+      useHabitsStore.getState().reset();
+      useHabitCompletionsStore.getState().reset();
       useTodosStore.getState().reset();
       useTrophiesStore.getState().reset();
       useOnboardingStore.getState().reset();
@@ -60,6 +66,9 @@ export default function RootLayout() {
     useBucketStore.getState().hydrate().catch(() => {});
     useGoalsStore.getState().hydrate().catch(() => {});
     useMilestonesStore.getState().hydrate().catch(() => {});
+    useRoutinesStore.getState().hydrate().catch(() => {});
+    useHabitsStore.getState().hydrate().catch(() => {});
+    useHabitCompletionsStore.getState().hydrate().catch(() => {});
     useTodosStore.getState().hydrate().catch(() => {});
     useTrophiesStore.getState().hydrate().catch(() => {});
   }, [userId]);
@@ -74,6 +83,7 @@ export default function RootLayout() {
             <Stack.Screen name="new" options={{ presentation: 'modal' }} />
             <Stack.Screen name="simple-item" options={{ presentation: 'modal' }} />
             <Stack.Screen name="goal" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="habit" options={{ presentation: 'modal' }} />
             <Stack.Screen
               name="goal-detail"
               options={{ headerShown: true, title: 'Goal', presentation: 'formSheet' }}
@@ -93,6 +103,14 @@ export default function RootLayout() {
             <Stack.Screen
               name="trophy-detail"
               options={{ headerShown: true, title: 'Trophy', presentation: 'formSheet' }}
+            />
+            <Stack.Screen
+              name="habit-detail"
+              options={{ headerShown: true, title: 'Habit', presentation: 'formSheet' }}
+            />
+            <Stack.Screen
+              name="habits-trends-lab"
+              options={{ headerShown: true, title: 'Trend ideas' }}
             />
             <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
             <Stack.Screen name="sign-in" options={{ headerShown: false, gestureEnabled: false }} />

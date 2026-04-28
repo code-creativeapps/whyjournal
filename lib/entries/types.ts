@@ -1,4 +1,4 @@
-export type EntryType = 'win' | 'gratitude';
+export type EntryType = 'win' | 'gratitude' | 'confirmation';
 
 export type Entry = {
   id: string;
@@ -12,6 +12,8 @@ export type NewEntryInput = {
   type: EntryType;
   title: string;
   body?: string;
+  /** Override timestamp — when omitted, the backend defaults to now(). */
+  createdAt?: string;
 };
 
 export type UpdateEntryInput = Partial<NewEntryInput>;

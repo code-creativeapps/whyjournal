@@ -32,14 +32,16 @@ export const supabaseEntriesRepository: EntriesRepository = {
 
   async add(input: NewEntryInput) {
     const userId = await getUserId();
+    const row: Record<string, unknown> = {
+      user_id: userId,
+      type: input.type,
+      title: input.title,
+      body: input.body,
+    };
+    if (input.createdAt) row.created_at = input.createdAt;
     const { data, error } = await supabase
       .from('entries')
-      .insert({
-        user_id: userId,
-        type: input.type,
-        title: input.title,
-        body: input.body,
-      })
+      .insert(row)
       .select()
       .single();
     if (error) throw error;
@@ -51,6 +53,7 @@ export const supabaseEntriesRepository: EntriesRepository = {
     if (patch.type !== undefined) row.type = patch.type;
     if (patch.title !== undefined) row.title = patch.title;
     if (patch.body !== undefined) row.body = patch.body;
+    if (patch.createdAt !== undefined) row.created_at = patch.createdAt;
     const { data, error } = await supabase
       .from('entries')
       .update(row)

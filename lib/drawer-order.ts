@@ -3,6 +3,7 @@ export const DRAWER_ORDER = [
   'affirmations',
   'bucket',
   'goals',
+  'habits',
   'trophies',
   'todos',
 ] as const;
@@ -14,6 +15,7 @@ export const ROUTE_TO_PATH: Record<DrawerRoute, string> = {
   affirmations: '/affirmations',
   bucket: '/bucket',
   goals: '/goals',
+  habits: '/habits',
   trophies: '/trophies',
   todos: '/todos',
 };

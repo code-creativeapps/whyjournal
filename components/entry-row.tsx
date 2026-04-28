@@ -1,30 +1,26 @@
 import { Link } from 'expo-router';
-import { CheckIcon, HeartIcon } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import type { Entry } from '@/lib/entries/types';
+import { ENTRY_VISUALS } from '@/lib/entries/visuals';
+import { cn } from '@/lib/utils';
 
 export function EntryRow({ entry }: { entry: Entry }) {
-  const isWin = entry.type === 'win';
+  const visual = ENTRY_VISUALS[entry.type];
   return (
     <Animated.View entering={FadeIn.duration(180)}>
       <Link href={{ pathname: '/entry-detail', params: { id: entry.id } }} asChild>
         <Pressable className="active:bg-accent">
           <View className="flex-row items-center gap-3 px-4 py-1.5">
             <View
-              className={
-                isWin
-                  ? 'size-6 items-center justify-center rounded-full bg-green-500/15'
-                  : 'size-6 items-center justify-center rounded-full bg-pink-500/15'
-              }>
-              <Icon
-                as={isWin ? CheckIcon : HeartIcon}
-                size={14}
-                className={isWin ? 'text-green-600' : 'text-pink-600'}
-              />
+              className={cn(
+                'size-6 items-center justify-center rounded-full',
+                visual.badgeBgClass
+              )}>
+              <Icon as={visual.icon} size={14} className={visual.iconColorClass} />
             </View>
             <View className="flex-1">
               <Text className="text-base" numberOfLines={1}>

@@ -10,6 +10,7 @@ import {
   ListIcon,
   type LucideIcon,
   QuoteIcon,
+  RepeatIcon,
   StarIcon,
   TargetIcon,
   TrophyIcon,
@@ -72,6 +73,13 @@ const SECTIONS: Section[] = [
     iconColorClass: 'text-red-500',
   },
   {
+    name: 'habits',
+    label: 'Habits',
+    icon: RepeatIcon,
+    bgClass: 'bg-violet-500/15',
+    iconColorClass: 'text-violet-500',
+  },
+  {
     name: 'trophies',
     label: 'Trophies',
     icon: TrophyIcon,
@@ -116,6 +124,7 @@ export default function DrawerLayout() {
       <Drawer.Screen name="affirmations" options={{ title: 'Reminders' }} />
       <Drawer.Screen name="bucket" options={{ title: 'Bucket list' }} />
       <Drawer.Screen name="goals" options={{ title: 'Goals' }} />
+      <Drawer.Screen name="habits" options={{ title: 'Habits' }} />
       <Drawer.Screen name="trophies" options={{ title: 'Trophies' }} />
       <Drawer.Screen name="todos" options={{ title: 'Todos' }} />
       <Drawer.Screen name="metrics" options={{ title: 'Metrics' }} />

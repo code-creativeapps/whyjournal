@@ -70,6 +70,7 @@ function playSafely(player: AudioPlayer | null) {
 type Listener = () => void;
 const listeners = new Set<Listener>();
 const trophyListeners = new Set<Listener>();
+const goalListeners = new Set<Listener>();
 
 export function onCelebrate(listener: Listener): () => void {
   listeners.add(listener);
@@ -82,6 +83,13 @@ export function onCelebrateTrophy(listener: Listener): () => void {
   trophyListeners.add(listener);
   return () => {
     trophyListeners.delete(listener);
+  };
+}
+
+export function onCelebrateGoal(listener: Listener): () => void {
+  goalListeners.add(listener);
+  return () => {
+    goalListeners.delete(listener);
   };
 }
 
@@ -107,6 +115,19 @@ export function celebrateTrophy() {
   playSafely(getCheer());
   playSafely(getUplift());
   trophyListeners.forEach((l) => {
+    try {
+      l();
+    } catch {
+      // listener errors should not break the chain
+    }
+  });
+}
+
+export function celebrateGoal() {
+  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+  playSafely(getCheer());
+  playSafely(getUplift());
+  goalListeners.forEach((l) => {
     try {
       l();
     } catch {
