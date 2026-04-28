@@ -1,4 +1,10 @@
-import { CheckIcon, PlusIcon, XIcon } from 'lucide-react-native';
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  PlusIcon,
+  XIcon,
+} from 'lucide-react-native';
 import { Pressable, TextInput, View } from 'react-native';
 import uuid from 'react-native-uuid';
 
@@ -27,38 +33,75 @@ export function MilestoneEditor({ milestones, onChange }: Props) {
     onChange(milestones.filter((m) => m.id !== id));
   }
 
+  function move(id: string, delta: 1 | -1) {
+    const idx = milestones.findIndex((m) => m.id === id);
+    const target = idx + delta;
+    if (idx < 0 || target < 0 || target >= milestones.length) return;
+    const next = [...milestones];
+    [next[idx], next[target]] = [next[target], next[idx]];
+    onChange(next);
+  }
+
   function add() {
     onChange([...milestones, { id: String(uuid.v4()), title: '', done: false }]);
   }
 
+  const lastIdx = milestones.length - 1;
+
   return (
     <View className="gap-2">
-      {milestones.map((m) => (
-        <View key={m.id} className="flex-row items-center gap-2">
-          <Pressable
-            onPress={() => toggle(m.id)}
-            hitSlop={8}
-            className={cn(
-              'size-6 items-center justify-center rounded-md border-2',
-              m.done ? 'border-red-500 bg-red-500' : 'border-muted-foreground/40'
-            )}>
-            {m.done ? <Icon as={CheckIcon} size={14} className="text-white" /> : null}
-          </Pressable>
-          <TextInput
-            value={m.title}
-            onChangeText={(title) => update(m.id, { title })}
-            placeholder="Milestone title"
-            placeholderTextColor="#9ca3af"
-            className={cn(
-              'flex-1 rounded-md border border-input bg-background px-3 py-2 text-base text-foreground',
-              m.done && 'text-muted-foreground line-through'
-            )}
-          />
-          <Pressable onPress={() => remove(m.id)} hitSlop={8} className="p-1">
-            <Icon as={XIcon} size={18} className="text-muted-foreground" />
-          </Pressable>
-        </View>
-      ))}
+      {milestones.map((m, idx) => {
+        const isFirst = idx === 0;
+        const isLast = idx === lastIdx;
+        return (
+          <View key={m.id} className="flex-row items-center gap-2">
+            <Pressable
+              onPress={() => toggle(m.id)}
+              hitSlop={8}
+              className={cn(
+                'size-6 items-center justify-center rounded-md border-2',
+                m.done ? 'border-red-500 bg-red-500' : 'border-muted-foreground/40'
+              )}>
+              {m.done ? <Icon as={CheckIcon} size={14} className="text-white" /> : null}
+            </Pressable>
+            <TextInput
+              value={m.title}
+              onChangeText={(title) => update(m.id, { title })}
+              placeholder="Milestone title"
+              placeholderTextColor="#9ca3af"
+              className={cn(
+                'flex-1 rounded-md border border-input bg-background px-3 py-2 text-base text-foreground',
+                m.done && 'text-muted-foreground line-through'
+              )}
+            />
+            <Pressable
+              onPress={() => move(m.id, -1)}
+              disabled={isFirst}
+              hitSlop={6}
+              className="p-1">
+              <Icon
+                as={ChevronUpIcon}
+                size={18}
+                className={isFirst ? 'text-muted-foreground/30' : 'text-muted-foreground'}
+              />
+            </Pressable>
+            <Pressable
+              onPress={() => move(m.id, 1)}
+              disabled={isLast}
+              hitSlop={6}
+              className="p-1">
+              <Icon
+                as={ChevronDownIcon}
+                size={18}
+                className={isLast ? 'text-muted-foreground/30' : 'text-muted-foreground'}
+              />
+            </Pressable>
+            <Pressable onPress={() => remove(m.id)} hitSlop={8} className="p-1">
+              <Icon as={XIcon} size={18} className="text-muted-foreground" />
+            </Pressable>
+          </View>
+        );
+      })}
       <Pressable
         onPress={add}
         className="mt-1 flex-row items-center gap-2 self-start rounded-md border border-dashed border-border px-3 py-2">

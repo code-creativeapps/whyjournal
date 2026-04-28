@@ -19,6 +19,7 @@ const DEFAULT_MAP: ColumnMap = {
   completedAt: 'completed_at',
   targetDate: 'target_date',
   goalId: 'goal_id',
+  milestoneId: 'milestone_id',
   dueAt: 'due_at',
   routineId: 'routine_id',
   habitId: 'habit_id',

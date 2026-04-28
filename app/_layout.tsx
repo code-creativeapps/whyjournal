@@ -83,10 +83,15 @@ export default function RootLayout() {
             <Stack.Screen name="new" options={{ presentation: 'modal' }} />
             <Stack.Screen name="simple-item" options={{ presentation: 'modal' }} />
             <Stack.Screen name="goal" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="milestone" options={{ presentation: 'modal' }} />
             <Stack.Screen name="habit" options={{ presentation: 'modal' }} />
             <Stack.Screen
               name="goal-detail"
               options={{ headerShown: true, title: 'Goal', presentation: 'formSheet' }}
+            />
+            <Stack.Screen
+              name="milestone-detail"
+              options={{ headerShown: true, title: 'Milestone', presentation: 'formSheet' }}
             />
             <Stack.Screen
               name="bucket-detail"

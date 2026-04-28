@@ -23,12 +23,18 @@ export default function GoalDetailScreen() {
   );
   const updateGoal = useGoalsStore((state) => state.updateItem);
   const allMilestones = useMilestonesStore((state) => state.items);
-  const updateMilestone = useMilestonesStore((state) => state.updateItem);
 
-  const milestones = React.useMemo(
-    () => (id ? allMilestones.filter((m) => m.goalId === id) : []),
-    [allMilestones, id]
-  );
+  const milestones = React.useMemo(() => {
+    if (!id) return [];
+    return allMilestones
+      .filter((m) => m.goalId === id)
+      .slice()
+      .sort(
+        (a, b) =>
+          (a.position ?? 0) - (b.position ?? 0) ||
+          a.createdAt.localeCompare(b.createdAt)
+      );
+  }, [allMilestones, id]);
   const progress = React.useMemo(
     () => (goal ? goalProgress(goal, milestones) : null),
     [goal, milestones]
@@ -92,8 +98,16 @@ export default function GoalDetailScreen() {
       />
       <ScrollView contentContainerClassName="gap-6 px-6 pt-12 pb-10">
         <View className="items-center gap-4">
-          <View className="size-20 items-center justify-center rounded-full bg-red-500/15">
-            <Icon as={TargetIcon} size={40} className="text-red-500" />
+          <View
+            className={cn(
+              'size-20 items-center justify-center rounded-full',
+              goal.done ? 'bg-green-600' : 'bg-red-500/15'
+            )}>
+            <Icon
+              as={TargetIcon}
+              size={40}
+              className={goal.done ? 'text-white' : 'text-red-500'}
+            />
           </View>
           <Text
             variant="h2"
@@ -155,31 +169,36 @@ export default function GoalDetailScreen() {
           {hasMilestones ? (
             <View className="overflow-hidden rounded-xl border border-border">
               {milestones.map((m, idx) => (
-                <View
-                  key={m.id}
-                  className={cn('flex-row items-center gap-3 px-3 py-3', idx > 0 && 'border-t border-border')}>
+                <React.Fragment key={m.id}>
+                  {idx > 0 ? <View className="h-px bg-border" /> : null}
                   <Pressable
                     onPress={() =>
-                      updateMilestone(m.id, {
-                        done: !m.done,
-                        completedAt: !m.done ? new Date().toISOString() : undefined,
+                      router.push({
+                        pathname: '/milestone-detail',
+                        params: { id: m.id },
                       })
                     }
-                    hitSlop={8}
-                    className={cn(
-                      'size-6 items-center justify-center rounded-md border-2',
-                      m.done ? 'border-red-500 bg-red-500' : 'border-muted-foreground/40'
-                    )}>
-                    {m.done ? <Icon as={CheckIcon} size={14} className="text-white" /> : null}
+                    className="flex-row items-center gap-3 px-3 py-3 active:bg-accent">
+                    <View
+                      className={cn(
+                        'size-6 items-center justify-center rounded-full',
+                        m.done ? 'bg-green-500' : 'bg-pink-400/15'
+                      )}>
+                      <Icon
+                        as={TargetIcon}
+                        size={14}
+                        className={m.done ? 'text-white' : 'text-pink-400'}
+                      />
+                    </View>
+                    <Text
+                      className={cn(
+                        'flex-1 text-base',
+                        m.done && 'text-muted-foreground line-through'
+                      )}>
+                      {m.title}
+                    </Text>
                   </Pressable>
-                  <Text
-                    className={cn(
-                      'flex-1 text-base',
-                      m.done && 'text-muted-foreground line-through'
-                    )}>
-                    {m.title}
-                  </Text>
-                </View>
+                </React.Fragment>
               ))}
             </View>
           ) : (

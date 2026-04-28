@@ -37,8 +37,18 @@ export default function GoalFormScreen() {
   const isEditing = Boolean(id);
 
   // Snapshot of current milestones at mount — the baseline we diff against on save.
+  // Sort by stored position so reordering is sticky across edits.
   const initialMilestonesRef = React.useRef(
-    id ? allMilestones.filter((m) => m.goalId === id) : []
+    id
+      ? allMilestones
+          .filter((m) => m.goalId === id)
+          .slice()
+          .sort(
+            (a, b) =>
+              (a.position ?? 0) - (b.position ?? 0) ||
+              a.createdAt.localeCompare(b.createdAt)
+          )
+      : []
   );
 
   const [title, setTitle] = React.useState(existing?.title ?? '');
@@ -50,6 +60,7 @@ export default function GoalFormScreen() {
       id: m.id,
       title: m.title,
       done: m.done,
+      position: m.position,
     }))
   );
   const [saving, setSaving] = React.useState(false);
@@ -80,19 +91,26 @@ export default function GoalFormScreen() {
       }
 
       // Sync milestones — diff the local drafts against the initial snapshot.
+      // Persist `position` based on array index so reordering survives reloads.
       const initial = initialMilestonesRef.current;
       const initialIds = new Set(initial.map((m) => m.id));
       const keptIds = new Set<string>();
-      for (const m of milestones) {
+      for (let i = 0; i < milestones.length; i++) {
+        const m = milestones[i];
         const cleanTitle = m.title.trim();
         if (!cleanTitle) continue;
         if (initialIds.has(m.id)) {
           keptIds.add(m.id);
           const before = initial.find((x) => x.id === m.id)!;
-          if (before.title !== cleanTitle || before.done !== m.done) {
+          if (
+            before.title !== cleanTitle ||
+            before.done !== m.done ||
+            (before.position ?? 0) !== i
+          ) {
             await updateMilestone(m.id, {
               title: cleanTitle,
               done: m.done,
+              position: i,
               completedAt: m.done
                 ? before.completedAt ?? new Date().toISOString()
                 : undefined,
@@ -102,6 +120,7 @@ export default function GoalFormScreen() {
           await addMilestone({
             title: cleanTitle,
             done: m.done,
+            position: i,
             goalId,
             completedAt: m.done ? new Date().toISOString() : undefined,
           });

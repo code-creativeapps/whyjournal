@@ -69,8 +69,11 @@ create table if not exists public.milestones (
   user_id uuid not null references auth.users(id) on delete cascade,
   goal_id uuid not null references public.goals(id) on delete cascade,
   title text not null,
+  body text,
+  target_date text,
   done boolean not null default false,
   completed_at timestamptz,
+  position int not null default 0,
   created_at timestamptz not null default now()
 );
 create index if not exists milestones_user_idx on public.milestones (user_id);
@@ -145,9 +148,14 @@ create table if not exists public.todos (
   done boolean not null default false,
   completed_at timestamptz,
   due_at date,
+  goal_id uuid references public.goals(id) on delete cascade,
+  milestone_id uuid references public.milestones(id) on delete cascade,
+  constraint todos_one_parent check (goal_id is null or milestone_id is null),
   created_at timestamptz not null default now()
 );
 create index if not exists todos_user_created_idx on public.todos (user_id, created_at desc);
+create index if not exists todos_goal_idx on public.todos (goal_id);
+create index if not exists todos_milestone_idx on public.todos (milestone_id);
 
 -- =============================================================================
 -- Row-Level Security: every read/write is scoped to the authenticated user.
@@ -196,3 +204,21 @@ create index if not exists todos_user_due_idx on public.todos (user_id, due_at);
 alter table public.entries drop constraint if exists entries_type_check;
 alter table public.entries add constraint entries_type_check
   check (type in ('win', 'gratitude', 'confirmation'));
+
+-- milestones.position: explicit ordering per goal. Existing rows default to 0;
+-- the goal form normalizes positions on the next save (each milestone gets its
+-- array index), so this is just a one-time additive migration.
+alter table public.milestones add column if not exists position int not null default 0;
+
+-- milestones gain goal-like fields so they can be edited in their own sheet.
+alter table public.milestones add column if not exists body text;
+alter table public.milestones add column if not exists target_date text;
+
+-- todos can attach to a goal OR a milestone (at most one).
+alter table public.todos add column if not exists goal_id uuid references public.goals(id) on delete cascade;
+alter table public.todos add column if not exists milestone_id uuid references public.milestones(id) on delete cascade;
+alter table public.todos drop constraint if exists todos_one_parent;
+alter table public.todos add constraint todos_one_parent
+  check (goal_id is null or milestone_id is null);
+create index if not exists todos_goal_idx on public.todos (goal_id);
+create index if not exists todos_milestone_idx on public.todos (milestone_id);

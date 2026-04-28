@@ -14,4 +14,7 @@ export type MilestoneDraft = {
   id: string;
   title: string;
   done: boolean;
+  position?: number;
+  body?: string;
+  targetDate?: string;
 };

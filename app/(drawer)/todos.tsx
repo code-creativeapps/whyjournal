@@ -10,6 +10,8 @@ import { SwipeableRow } from '@/components/swipeable-row';
 import { SwipeableScreen } from '@/components/swipeable-screen';
 import { Text } from '@/components/ui/text';
 import { celebrateTodoCheck } from '@/lib/celebrate';
+import { useGoalsStore } from '@/lib/stores/goals';
+import { useMilestonesStore } from '@/lib/stores/milestones';
 import { useTodosStore } from '@/lib/stores/todos';
 import type { Todo } from '@/lib/todos/types';
 
@@ -61,10 +63,30 @@ export default function TodosScreen() {
   const hydrated = useTodosStore((state) => state.hydrated);
   const updateItem = useTodosStore((state) => state.updateItem);
   const deleteItem = useTodosStore((state) => state.deleteItem);
+  const goals = useGoalsStore((state) => state.items);
+  const milestones = useMilestonesStore((state) => state.items);
   const insets = useSafeAreaInsets();
 
   const sections = React.useMemo(() => buildSections(items), [items]);
   const todayKey = React.useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
+
+  function parentLabel(todo: Todo): string | undefined {
+    if (todo.milestoneId) {
+      const m = milestones.find((x) => x.id === todo.milestoneId);
+      if (m) return `Milestone: ${m.title}`;
+    }
+    if (todo.goalId) {
+      const g = goals.find((x) => x.id === todo.goalId);
+      if (g) return `Goal: ${g.title}`;
+    }
+    return undefined;
+  }
+
+  function combinedSubtitle(todo: Todo): string | undefined {
+    const due = dueSubtitle(todo, todayKey);
+    const parent = parentLabel(todo);
+    return [due, parent].filter(Boolean).join(' · ') || undefined;
+  }
 
   return (
     <SwipeableScreen route="todos">
@@ -97,7 +119,7 @@ export default function TodosScreen() {
                   kind="checkbox"
                   title={item.title}
                   body={item.body}
-                  subtitle={dueSubtitle(item, todayKey)}
+                  subtitle={combinedSubtitle(item)}
                   done={item.done}
                   onToggle={() => {
                     if (!item.done) celebrateTodoCheck();
