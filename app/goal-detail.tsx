@@ -11,6 +11,7 @@ import {
   AlignLeftIcon,
   CalendarIcon,
   CheckIcon,
+  CrownIcon,
   GiftIcon,
   HeartIcon,
   ImagesIcon,
@@ -42,6 +43,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { celebrateGoal, onCelebrateGoal } from '@/lib/celebrate';
 import type { GoalImage } from '@/lib/goal-images/types';
+import { GoalIconCircle } from '@/lib/goals/icon';
 import { goalProgress } from '@/lib/goals/progress';
 import { goalVelocity } from '@/lib/goals/velocity';
 import type { Habit } from '@/lib/habits/types';
@@ -171,16 +173,15 @@ export default function GoalDetailScreen() {
       <View className="flex-1">
         <View className="gap-3 px-6 pb-4 pt-6">
           <View className="items-center gap-3">
-            <View
-              className={cn(
-                'size-16 items-center justify-center rounded-full',
-                goal.done ? 'bg-green-600' : 'bg-red-500/15'
-              )}>
-              <Icon
-                as={TargetIcon}
-                size={32}
-                className={goal.done ? 'text-white' : 'text-red-500'}
-              />
+            <View>
+              <GoalIconCircle icon={goal.icon} done={goal.done} size="lg" />
+              {goal.isCornerstone ? (
+                <View
+                  pointerEvents="none"
+                  className="absolute -right-1 -top-1">
+                  <Icon as={CrownIcon} size={22} className="text-amber-500" />
+                </View>
+              ) : null}
             </View>
             <Text
               variant="h2"
@@ -201,31 +202,37 @@ export default function GoalDetailScreen() {
           </View>
         </View>
 
-        <View className="px-6 pb-3">
+        <View className="px-6 pb-5">
           <SegmentedTab value={tab} onChange={setTab} />
         </View>
 
-        {tab === 'description' ? (
-          <DescriptionTab
-            goal={goal}
-            velocity={velocity}
-            images={goalImages}
-            onEdit={() =>
-              router.push({ pathname: '/goal', params: { id: goal.id } })
-            }
-          />
-        ) : null}
-        {tab === 'milestones' ? (
-          <MilestonesTab
-            goalId={goal.id}
-            milestones={milestones}
-            progress={progress}
-            hasMilestones={hasMilestones}
-          />
-        ) : null}
-        {tab === 'systems' ? (
-          <SystemsTab goalId={goal.id} habits={habitsForGoal} />
-        ) : null}
+        <TabPager
+          tab={tab}
+          onTabChange={setTab}
+          pages={[
+            <DescriptionTab
+              key="description"
+              goal={goal}
+              velocity={velocity}
+              images={goalImages}
+              onEdit={() =>
+                router.push({ pathname: '/goal', params: { id: goal.id } })
+              }
+            />,
+            <MilestonesTab
+              key="milestones"
+              goalId={goal.id}
+              milestones={milestones}
+              progress={progress}
+              hasMilestones={hasMilestones}
+            />,
+            <SystemsTab
+              key="systems"
+              goalId={goal.id}
+              habits={habitsForGoal}
+            />,
+          ]}
+        />
 
         <View
           className="border-t border-border bg-background px-6 pt-3"
@@ -273,6 +280,49 @@ const TABS: { value: GoalTab; label: string }[] = [
   { value: 'milestones', label: 'Milestones' },
   { value: 'systems', label: 'Systems' },
 ];
+
+function TabPager({
+  tab,
+  onTabChange,
+  pages,
+}: {
+  tab: GoalTab;
+  onTabChange: (next: GoalTab) => void;
+  pages: React.ReactNode[];
+}) {
+  const scrollRef = React.useRef<ScrollView>(null);
+  const tabIndex = TABS.findIndex((t) => t.value === tab);
+
+  // Keep horizontal scroll position in sync when the user taps a segmented
+  // tab. Without this, the pager would stay on the previous page.
+  React.useEffect(() => {
+    scrollRef.current?.scrollTo({
+      x: tabIndex * SCREEN_WIDTH,
+      animated: true,
+    });
+  }, [tabIndex]);
+
+  return (
+    <ScrollView
+      ref={scrollRef}
+      horizontal
+      pagingEnabled
+      showsHorizontalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      onMomentumScrollEnd={(e) => {
+        const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+        const next = TABS[idx]?.value;
+        if (next && next !== tab) onTabChange(next);
+      }}
+      style={{ flex: 1 }}>
+      {pages.map((node, i) => (
+        <View key={i} style={{ width: SCREEN_WIDTH }} className="flex-1">
+          {node}
+        </View>
+      ))}
+    </ScrollView>
+  );
+}
 
 function SegmentedTab({
   value,

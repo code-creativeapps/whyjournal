@@ -26,6 +26,7 @@ const DEFAULT_MAP: ColumnMap = {
   frequencyKind: 'frequency_kind',
   timesPerPeriod: 'times_per_period',
   daysOfWeek: 'days_of_week',
+  isCornerstone: 'is_cornerstone',
 };
 
 export function createSupabaseRepository<T extends BaseItem>(

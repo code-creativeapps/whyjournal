@@ -19,6 +19,7 @@ import { SwipeableRow } from '@/components/swipeable-row';
 import { SwipeableScreen } from '@/components/swipeable-screen';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { GoalIconCircle } from '@/lib/goals/icon';
 import { goalProgress } from '@/lib/goals/progress';
 import type { Goal } from '@/lib/goals/types';
 import { useGoalsStore } from '@/lib/stores/goals';
@@ -224,7 +225,7 @@ function GoalsList({
             milestones={milestonesByGoal.get(item.id) ?? []}
             expanded={expanded.has(item.id)}
             onToggleExpand={() => onToggleExpand(item.id)}
-            isCornerstone={index === 0}
+            isCornerstone={Boolean(item.isCornerstone)}
           />
         </SwipeableRow>
       )}
@@ -268,17 +269,7 @@ function GoalListItem({
           className="flex-1">
           <View className="flex-row items-center gap-3 px-4 py-2">
             <View>
-              <View
-                className={cn(
-                  'size-6 items-center justify-center rounded-full',
-                  goal.done ? 'bg-green-600' : 'bg-red-500/15'
-                )}>
-                <Icon
-                  as={TargetIcon}
-                  size={14}
-                  className={goal.done ? 'text-white' : 'text-red-500'}
-                />
-              </View>
+              <GoalIconCircle icon={goal.icon} done={goal.done} size="sm" />
               {isCornerstone ? (
                 <View
                   pointerEvents="none"

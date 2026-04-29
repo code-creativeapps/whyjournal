@@ -12,16 +12,20 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Switch,
   TextInput,
   View,
 } from 'react-native';
 
+import { GoalIconPickerSheet } from '@/components/goal-icon-picker-sheet';
 import { GoalImagePickerSheet, type PickedImage } from '@/components/goal-image-picker-sheet';
 import { MilestoneEditor } from '@/components/milestone-editor';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
+import { setCornerstone, clearCornerstone } from '@/lib/goals/cornerstone';
+import { GoalIconCircle } from '@/lib/goals/icon';
 import type { Goal, MilestoneDraft } from '@/lib/goals/types';
 import { useGoalImagesStore } from '@/lib/stores/goal-images';
 import { useGoalsStore } from '@/lib/stores/goals';
@@ -74,6 +78,14 @@ export default function GoalFormScreen() {
   const [why, setWhy] = React.useState(existing?.why ?? '');
   const [reward, setReward] = React.useState(existing?.reward ?? '');
   const [targetDate, setTargetDate] = React.useState(existing?.targetDate ?? '');
+  const [icon, setIcon] = React.useState<string | undefined>(existing?.icon);
+  const [isCornerstone, setIsCornerstone] = React.useState<boolean>(
+    Boolean(existing?.isCornerstone)
+  );
+  const initialCornerstoneRef = React.useRef<boolean>(
+    Boolean(existing?.isCornerstone)
+  );
+  const iconPickerRef = React.useRef<BottomSheetModal>(null);
   const [milestones, setMilestones] = React.useState<MilestoneDraft[]>(() =>
     initialMilestonesRef.current.map((m) => ({
       id: m.id,
@@ -117,6 +129,7 @@ export default function GoalFormScreen() {
         why: why.trim() || undefined,
         reward: reward.trim() || undefined,
         targetDate: targetDate.trim() || undefined,
+        icon: icon ?? undefined,
         done: existing?.done ?? false,
       };
 
@@ -127,6 +140,17 @@ export default function GoalFormScreen() {
       } else {
         const created = await addGoal(goalPayload as Omit<Goal, 'id' | 'createdAt'>);
         goalId = created.id;
+      }
+
+      // Cornerstone toggle: only act when the value actually changed. Setting
+      // routes through the helper so any previous cornerstone is cleared
+      // before the new one is set, satisfying the partial unique index.
+      if (isCornerstone !== initialCornerstoneRef.current) {
+        if (isCornerstone) {
+          await setCornerstone(goalId);
+        } else {
+          await clearCornerstone(goalId);
+        }
       }
 
       // Sync milestones — diff the local drafts against the initial snapshot.
@@ -258,6 +282,28 @@ export default function GoalFormScreen() {
             />
           </Field>
 
+          <Field label="Icon" hint="Optional — give this goal its own face.">
+            <Pressable
+              onPress={() => iconPickerRef.current?.present()}
+              className="flex-row items-center gap-3 rounded-md border border-input bg-background px-3 py-2 active:bg-accent">
+              <GoalIconCircle icon={icon} size="md" />
+              <Text variant="muted" className="flex-1 text-sm">
+                Tap to change
+              </Text>
+            </Pressable>
+          </Field>
+
+          <Field
+            label="Cornerstone goal"
+            hint="Pin this as your most important goal — there can only be one.">
+            <View className="flex-row items-center justify-between rounded-md border border-input bg-background px-3 py-2">
+              <Text className="text-base">
+                {isCornerstone ? 'Currently your cornerstone' : 'Off'}
+              </Text>
+              <Switch value={isCornerstone} onValueChange={setIsCornerstone} />
+            </View>
+          </Field>
+
           <Field
             label="Vivid description"
             hint="Describe success in detail — what does it look, feel, and sound like?">
@@ -271,6 +317,15 @@ export default function GoalFormScreen() {
               className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-base text-foreground"
             />
           </Field>
+
+          <GoalIconPickerSheet
+            ref={iconPickerRef}
+            selected={icon}
+            onPick={(next) => {
+              setIcon(next);
+              iconPickerRef.current?.dismiss();
+            }}
+          />
 
           {isEditing && id ? (
             <Field

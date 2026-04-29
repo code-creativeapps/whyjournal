@@ -56,11 +56,16 @@ create table if not exists public.goals (
   why text,
   reward text,
   target_date text,
+  icon text,
+  is_cornerstone boolean not null default false,
   done boolean not null default false,
   completed_at timestamptz,
   created_at timestamptz not null default now()
 );
 create index if not exists goals_user_created_idx on public.goals (user_id, created_at desc);
+-- Partial unique index "goals_one_cornerstone_per_user" lives in the migration
+-- block at the bottom: it depends on the is_cornerstone column, which existing
+-- databases only get via the alter-table-add-column-if-not-exists below.
 
 -- =============================================================================
 -- milestones (sub-steps belonging to a goal; not visible in the Todos list)
@@ -219,6 +224,10 @@ end $$;
 -- =============================================================================
 alter table public.goals add column if not exists reward text;
 alter table public.goals add column if not exists body text;
+alter table public.goals add column if not exists icon text;
+alter table public.goals add column if not exists is_cornerstone boolean not null default false;
+create unique index if not exists goals_one_cornerstone_per_user
+  on public.goals (user_id) where is_cornerstone;
 alter table public.todos add column if not exists due_at date;
 create index if not exists todos_user_due_idx on public.todos (user_id, due_at);
 
