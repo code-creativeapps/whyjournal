@@ -9,7 +9,6 @@ import {
   RotateCcwIcon,
   SparklesIcon,
   TargetIcon,
-  XIcon,
 } from 'lucide-react-native';
 import * as React from 'react';
 import { Dimensions, Pressable, ScrollView, View } from 'react-native';
@@ -36,6 +35,7 @@ import { useHabitCompletionsStore } from '@/lib/stores/habit-completions';
 import { useHabitsStore } from '@/lib/stores/habits';
 import { useMilestonesStore } from '@/lib/stores/milestones';
 import { useTodosStore } from '@/lib/stores/todos';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cn } from '@/lib/utils';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -95,6 +95,7 @@ export default function GoalDetailScreen() {
   // Each celebration bumps this counter; ConfettiCannon is mounted with that
   // counter as a key so it remounts fresh and auto-starts. Avoids the un-fired
   // cannon's stacked confetti pieces showing as a visual glitch on the screen.
+  const insets = useSafeAreaInsets();
   const [confettiTrigger, setConfettiTrigger] = React.useState(0);
 
   React.useEffect(
@@ -132,11 +133,6 @@ export default function GoalDetailScreen() {
       <Stack.Screen
         options={{
           title: 'Goal',
-          headerLeft: () => (
-            <Pressable onPress={() => router.back()} hitSlop={8} className="px-2">
-              <Icon as={XIcon} size={20} className="text-foreground" />
-            </Pressable>
-          ),
           headerRight: () => (
             <Pressable
               onPress={() => router.push({ pathname: '/goal', params: { id: goal.id } })}
@@ -148,7 +144,8 @@ export default function GoalDetailScreen() {
           ),
         }}
       />
-      <ScrollView contentContainerClassName="gap-6 px-6 pt-12 pb-10">
+      <View className="flex-1">
+      <View className="gap-6 px-6 pt-8 pb-4">
         <View className="items-center gap-4">
           <View
             className={cn(
@@ -180,44 +177,47 @@ export default function GoalDetailScreen() {
         </View>
 
         <SegmentedTab value={tab} onChange={setTab} />
+      </View>
 
-        {tab === 'description' ? (
-          <DescriptionTab goal={goal} velocity={velocity} />
-        ) : null}
-        {tab === 'milestones' ? (
-          <MilestonesTab
-            goalId={goal.id}
-            milestones={milestones}
-            progress={progress}
-            hasMilestones={hasMilestones}
-          />
-        ) : null}
-        {tab === 'systems' ? (
-          <SystemsTab goalId={goal.id} habits={habitsForGoal} />
-        ) : null}
+      {tab === 'description' ? (
+        <DescriptionTab goal={goal} velocity={velocity} />
+      ) : null}
+      {tab === 'milestones' ? (
+        <MilestonesTab
+          goalId={goal.id}
+          milestones={milestones}
+          progress={progress}
+          hasMilestones={hasMilestones}
+        />
+      ) : null}
+      {tab === 'systems' ? (
+        <SystemsTab goalId={goal.id} habits={habitsForGoal} />
+      ) : null}
 
-        <View className="mt-2">
-          {goal.done ? (
-            // Match outer height of AnimatedBorder (which adds 2pt padding all around).
-            <View style={{ padding: 2 }}>
-              <HoldToConfirmButton
-                label="Hold to mark as not completed"
-                icon={RotateCcwIcon}
-                onConfirm={handleMarkNotCompleted}
-                silent
-              />
-            </View>
-          ) : (
-            <AnimatedBorder>
-              <HoldToConfirmButton
-                label="Hold to mark as completed"
-                icon={CheckIcon}
-                onConfirm={handleMarkCompleted}
-              />
-            </AnimatedBorder>
-          )}
-        </View>
-      </ScrollView>
+      <View
+        className="border-t border-border bg-background px-6 pt-3"
+        style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
+        {goal.done ? (
+          // Match outer height of AnimatedBorder (which adds 2pt padding all around).
+          <View style={{ padding: 2 }}>
+            <HoldToConfirmButton
+              label="Hold to mark as not completed"
+              icon={RotateCcwIcon}
+              onConfirm={handleMarkNotCompleted}
+              silent
+            />
+          </View>
+        ) : (
+          <AnimatedBorder>
+            <HoldToConfirmButton
+              label="Hold to mark as completed"
+              icon={CheckIcon}
+              onConfirm={handleMarkCompleted}
+            />
+          </AnimatedBorder>
+        )}
+      </View>
+      </View>
       {confettiTrigger > 0 ? (
         <View pointerEvents="none" className="absolute inset-0">
           <ConfettiCannon
@@ -281,48 +281,57 @@ function DescriptionTab({
   goal: { body?: string; why?: string; reward?: string };
   velocity: { date: string; count: number }[];
 }) {
-  const hasAny = Boolean(goal.body || goal.why || goal.reward);
-
   return (
-    <View className="gap-6">
-      {goal.body ? (
-        <View className="gap-1">
-          <Text variant="muted" className="text-xs uppercase tracking-wide">
-            Vivid description
-          </Text>
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerClassName="gap-6 px-6 pb-6">
+      <View className="gap-1">
+        <Text variant="muted" className="text-xs uppercase tracking-wide">
+          Vivid description
+        </Text>
+        {goal.body ? (
           <Text className="text-base leading-6">{goal.body}</Text>
-        </View>
-      ) : null}
-
-      {goal.why ? (
-        <View className="gap-1">
-          <Text variant="muted" className="text-xs uppercase tracking-wide">
-            Why it matters
+        ) : (
+          <Text variant="muted" className="text-base italic leading-6">
+            Paint the picture of what done looks like. Tap Edit to fill in.
           </Text>
+        )}
+      </View>
+
+      <View className="gap-1">
+        <Text variant="muted" className="text-xs uppercase tracking-wide">
+          Why it matters
+        </Text>
+        {goal.why ? (
           <Text className="text-base leading-6">{goal.why}</Text>
-        </View>
-      ) : null}
-
-      {goal.reward ? (
-        <View className="gap-1">
-          <Text variant="muted" className="text-xs uppercase tracking-wide">
-            Reward
+        ) : (
+          <Text variant="muted" className="text-base italic leading-6">
+            What changes once you get there? Tap Edit to fill in.
           </Text>
+        )}
+      </View>
+
+      <View className="gap-1">
+        <Text variant="muted" className="text-xs uppercase tracking-wide">
+          Reward
+        </Text>
+        {goal.reward ? (
           <View className="flex-row items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
             <Icon as={GiftIcon} size={18} className="text-amber-500" />
             <Text className="flex-1 text-base leading-6">{goal.reward}</Text>
           </View>
-        </View>
-      ) : null}
-
-      {!hasAny ? (
-        <Text variant="muted" className="text-sm">
-          No description yet. Tap Edit to add one.
-        </Text>
-      ) : null}
+        ) : (
+          <View className="flex-row items-start gap-3 rounded-xl border border-dashed border-border p-4">
+            <Icon as={GiftIcon} size={18} className="text-muted-foreground" />
+            <Text variant="muted" className="flex-1 text-base italic leading-6">
+              How will you celebrate? Tap Edit to fill in.
+            </Text>
+          </View>
+        )}
+      </View>
 
       <VelocityChart days={velocity} />
-    </View>
+    </ScrollView>
   );
 }
 
@@ -382,70 +391,76 @@ function MilestonesTab({
   hasMilestones: boolean;
 }) {
   return (
-    <View className="gap-4">
-      {hasMilestones ? (
-        <>
-          <View className="gap-2">
-            <View className="h-2 overflow-hidden rounded-full bg-muted">
-              <View
-                className="h-full rounded-full bg-red-500"
-                style={{ width: `${Math.round(progress.ratio * 100)}%` }}
-              />
+    <View className="flex-1">
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerClassName="gap-4 px-6 pb-4">
+        {hasMilestones ? (
+          <>
+            <View className="gap-2">
+              <View className="h-2 overflow-hidden rounded-full bg-muted">
+                <View
+                  className="h-full rounded-full bg-red-500"
+                  style={{ width: `${Math.round(progress.ratio * 100)}%` }}
+                />
+              </View>
+              <Text variant="muted" className="text-xs">
+                {progress.done} / {progress.total} milestones
+              </Text>
             </View>
-            <Text variant="muted" className="text-xs">
-              {progress.done} / {progress.total} milestones
-            </Text>
-          </View>
 
-          <View className="overflow-hidden rounded-xl border border-border">
-            {milestones.map((m, idx) => (
-              <React.Fragment key={m.id}>
-                {idx > 0 ? <View className="h-px bg-border" /> : null}
-                <Pressable
-                  onPress={() =>
-                    router.push({
-                      pathname: '/milestone-detail',
-                      params: { id: m.id },
-                    })
-                  }
-                  className="flex-row items-center gap-3 px-3 py-3 active:bg-accent">
-                  <View
-                    className={cn(
-                      'size-6 items-center justify-center rounded-full',
-                      m.done ? 'bg-green-500' : 'bg-pink-400/15'
-                    )}>
-                    <Icon
-                      as={TargetIcon}
-                      size={14}
-                      className={m.done ? 'text-white' : 'text-pink-400'}
-                    />
-                  </View>
-                  <Text
-                    className={cn(
-                      'flex-1 text-base',
-                      m.done && 'text-muted-foreground line-through'
-                    )}>
-                    {m.title}
-                  </Text>
-                </Pressable>
-              </React.Fragment>
-            ))}
-          </View>
-        </>
-      ) : (
-        <Text variant="muted" className="text-sm">
-          No milestones yet — add the first step.
-        </Text>
-      )}
+            <View className="overflow-hidden rounded-xl border border-border">
+              {milestones.map((m, idx) => (
+                <React.Fragment key={m.id}>
+                  {idx > 0 ? <View className="h-px bg-border" /> : null}
+                  <Pressable
+                    onPress={() =>
+                      router.push({
+                        pathname: '/milestone-detail',
+                        params: { id: m.id },
+                      })
+                    }
+                    className="flex-row items-center gap-3 px-3 py-3 active:bg-accent">
+                    <View
+                      className={cn(
+                        'size-6 items-center justify-center rounded-full',
+                        m.done ? 'bg-green-500' : 'bg-pink-400/15'
+                      )}>
+                      <Icon
+                        as={TargetIcon}
+                        size={14}
+                        className={m.done ? 'text-white' : 'text-pink-400'}
+                      />
+                    </View>
+                    <Text
+                      className={cn(
+                        'flex-1 text-base',
+                        m.done && 'text-muted-foreground line-through'
+                      )}>
+                      {m.title}
+                    </Text>
+                  </Pressable>
+                </React.Fragment>
+              ))}
+            </View>
+          </>
+        ) : (
+          <Text variant="muted" className="text-sm">
+            No milestones yet — add the first step.
+          </Text>
+        )}
+      </ScrollView>
 
-      <Button
-        variant="outline"
-        onPress={() =>
-          router.push({ pathname: '/milestone', params: { goalId } })
-        }>
-        <Icon as={PlusIcon} className="text-foreground" />
-        <Text>Add milestone</Text>
-      </Button>
+      <View className="border-t border-border px-6 pb-3 pt-3">
+        <Button
+          variant="outline"
+          onPress={() =>
+            router.push({ pathname: '/milestone', params: { goalId } })
+          }>
+          <Icon as={PlusIcon} className="text-foreground" />
+          <Text>Add milestone</Text>
+        </Button>
+      </View>
     </View>
   );
 }
@@ -463,52 +478,58 @@ function SystemsTab({ goalId, habits }: { goalId: string; habits: Habit[] }) {
 
   return (
     <BottomSheetModalProvider>
-    <View className="gap-4">
-      {habits.length > 0 ? (
-        <View className="overflow-hidden rounded-xl border border-border">
-          {habits.map((h, idx) => (
-            <React.Fragment key={h.id}>
-              {idx > 0 ? <View className="h-px bg-border" /> : null}
-              <Pressable
-                onPress={() =>
-                  router.push({ pathname: '/habit-detail', params: { id: h.id } })
-                }
-                className="flex-row items-center gap-3 px-3 py-3 active:bg-accent">
-                <View className="size-6 items-center justify-center rounded-full bg-violet-500/15">
-                  <Icon as={RepeatIcon} size={14} className="text-violet-500" />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-base">{h.title}</Text>
-                  <Text variant="muted" className="text-xs">
-                    {describeHabitFrequency(h)}
-                  </Text>
-                </View>
-              </Pressable>
-            </React.Fragment>
-          ))}
+      <View className="flex-1">
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerClassName="gap-4 px-6 pb-4">
+          {habits.length > 0 ? (
+            <View className="overflow-hidden rounded-xl border border-border">
+              {habits.map((h, idx) => (
+                <React.Fragment key={h.id}>
+                  {idx > 0 ? <View className="h-px bg-border" /> : null}
+                  <Pressable
+                    onPress={() =>
+                      router.push({ pathname: '/habit-detail', params: { id: h.id } })
+                    }
+                    className="flex-row items-center gap-3 px-3 py-3 active:bg-accent">
+                    <View className="size-6 items-center justify-center rounded-full bg-violet-500/15">
+                      <Icon as={RepeatIcon} size={14} className="text-violet-500" />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-base">{h.title}</Text>
+                      <Text variant="muted" className="text-xs">
+                        {describeHabitFrequency(h)}
+                      </Text>
+                    </View>
+                  </Pressable>
+                </React.Fragment>
+              ))}
+            </View>
+          ) : (
+            <Text variant="muted" className="text-sm">
+              No habits linked yet — wire up a system that drives this goal.
+            </Text>
+          )}
+        </ScrollView>
+
+        <View className="border-t border-border px-6 pb-3 pt-3">
+          <Button variant="outline" onPress={() => sheetRef.current?.present()}>
+            <Icon as={PlusIcon} className="text-foreground" />
+            <Text>Add habit</Text>
+          </Button>
         </View>
-      ) : (
-        <Text variant="muted" className="text-sm">
-          No habits linked yet — wire up a system that drives this goal.
-        </Text>
-      )}
 
-      <Button variant="outline" onPress={() => sheetRef.current?.present()}>
-        <Icon as={PlusIcon} className="text-foreground" />
-        <Text>Add habit</Text>
-      </Button>
-
-      <AttachHabitSheet
-        sheetRef={sheetRef}
-        goalId={goalId}
-        habits={attachable}
-        goals={allGoals}
-        onPick={async (habit) => {
-          await updateHabit(habit.id, { goalId });
-          sheetRef.current?.dismiss();
-        }}
-      />
-    </View>
+        <AttachHabitSheet
+          sheetRef={sheetRef}
+          goalId={goalId}
+          habits={attachable}
+          goals={allGoals}
+          onPick={async (habit) => {
+            await updateHabit(habit.id, { goalId });
+            sheetRef.current?.dismiss();
+          }}
+        />
+      </View>
     </BottomSheetModalProvider>
   );
 }
