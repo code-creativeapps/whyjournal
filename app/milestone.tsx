@@ -32,6 +32,7 @@ export default function MilestoneFormScreen() {
   const [title, setTitle] = React.useState(existing?.title ?? '');
   const [body, setBody] = React.useState(existing?.body ?? '');
   const [targetDate, setTargetDate] = React.useState(existing?.targetDate ?? '');
+  const [reward, setReward] = React.useState(existing?.reward ?? '');
   const [saving, setSaving] = React.useState(false);
 
   const canSave = title.trim().length > 0 && !saving;
@@ -43,6 +44,7 @@ export default function MilestoneFormScreen() {
       title: title.trim(),
       body: body.trim() || undefined,
       targetDate: targetDate.trim() || undefined,
+      reward: reward.trim() || undefined,
     };
     try {
       if (isEditing && id) {
@@ -135,6 +137,16 @@ export default function MilestoneFormScreen() {
               value={targetDate}
               onChangeText={setTargetDate}
               placeholder="e.g. End of June, Mar 30"
+            />
+          </Field>
+
+          <Field
+            label="Reward"
+            hint="Optional — a small celebration when you hit this milestone.">
+            <Input
+              value={reward}
+              onChangeText={setReward}
+              placeholder="e.g. New running shoes"
             />
           </Field>
 

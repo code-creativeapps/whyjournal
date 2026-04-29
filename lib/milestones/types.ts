@@ -7,4 +7,5 @@ export type Milestone = BaseItem & {
   position?: number;
   body?: string;
   targetDate?: string;
+  reward?: string;
 };

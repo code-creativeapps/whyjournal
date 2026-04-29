@@ -1,8 +1,12 @@
+import { useNavigation } from '@react-navigation/native';
 import { router } from 'expo-router';
 import {
   ChevronDownIcon,
   ChevronUpIcon,
+  ChevronsDownUpIcon,
+  ChevronsUpDownIcon,
   CornerDownRightIcon,
+  CrownIcon,
   TargetIcon,
 } from 'lucide-react-native';
 import * as React from 'react';
@@ -10,6 +14,7 @@ import { FlatList, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fab } from '@/components/fab';
+import { SearchHeaderButton } from '@/components/search-header-button';
 import { SwipeableRow } from '@/components/swipeable-row';
 import { SwipeableScreen } from '@/components/swipeable-screen';
 import { Icon } from '@/components/ui/icon';
@@ -76,6 +81,48 @@ export default function GoalsScreen() {
     }
     return out;
   }, [items, milestones, milestonesByGoal, goalsById]);
+
+  // True when at least one goal with milestones is expanded. Tap the toggle
+  // to either fold everything down or open it all up.
+  const goalsWithMilestones = React.useMemo(
+    () => items.filter((g) => (milestonesByGoal.get(g.id)?.length ?? 0) > 0),
+    [items, milestonesByGoal]
+  );
+  const anyExpanded = goalsWithMilestones.some((g) => expanded.has(g.id));
+  const onToggleAll = React.useCallback(() => {
+    if (anyExpanded) {
+      setExpanded(new Set());
+    } else {
+      setExpanded(new Set(goalsWithMilestones.map((g) => g.id)));
+    }
+  }, [anyExpanded, goalsWithMilestones]);
+
+  // Re-register the screen header so the toggle sits next to the global
+  // search button. We have to override `headerRight` per-screen because the
+  // drawer-level default (in (drawer)/_layout.tsx) only shows search.
+  const navigation = useNavigation();
+  const showToggle = tab === 'goals' && goalsWithMilestones.length > 0;
+  React.useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View className="flex-row items-center gap-1 pr-1">
+          {showToggle ? (
+            <Pressable
+              onPress={onToggleAll}
+              hitSlop={8}
+              className="size-9 items-center justify-center rounded-full active:bg-accent">
+              <Icon
+                as={anyExpanded ? ChevronsDownUpIcon : ChevronsUpDownIcon}
+                size={20}
+                className="text-foreground"
+              />
+            </Pressable>
+          ) : null}
+          <SearchHeaderButton />
+        </View>
+      ),
+    });
+  }, [navigation, showToggle, anyExpanded, onToggleAll]);
 
   return (
     <SwipeableScreen route="goals">
@@ -166,7 +213,7 @@ function GoalsList({
     <FlatList
       data={goals}
       keyExtractor={(item) => item.id}
-      renderItem={({ item }) => (
+      renderItem={({ item, index }) => (
         <SwipeableRow
           onEdit={() => router.push({ pathname: '/goal', params: { id: item.id } })}
           onDelete={() => onDeleteGoal(item.id)}
@@ -177,6 +224,7 @@ function GoalsList({
             milestones={milestonesByGoal.get(item.id) ?? []}
             expanded={expanded.has(item.id)}
             onToggleExpand={() => onToggleExpand(item.id)}
+            isCornerstone={index === 0}
           />
         </SwipeableRow>
       )}
@@ -191,11 +239,13 @@ function GoalListItem({
   milestones,
   expanded,
   onToggleExpand,
+  isCornerstone,
 }: {
   goal: Goal;
   milestones: Milestone[];
   expanded: boolean;
   onToggleExpand: () => void;
+  isCornerstone?: boolean;
 }) {
   const hasMilestones = milestones.length > 0;
   const progress = goalProgress(goal, milestones);
@@ -217,16 +267,25 @@ function GoalListItem({
           }
           className="flex-1">
           <View className="flex-row items-center gap-3 px-4 py-2">
-            <View
-              className={cn(
-                'size-6 items-center justify-center rounded-full',
-                goal.done ? 'bg-green-600' : 'bg-red-500/15'
-              )}>
-              <Icon
-                as={TargetIcon}
-                size={14}
-                className={goal.done ? 'text-white' : 'text-red-500'}
-              />
+            <View>
+              <View
+                className={cn(
+                  'size-6 items-center justify-center rounded-full',
+                  goal.done ? 'bg-green-600' : 'bg-red-500/15'
+                )}>
+                <Icon
+                  as={TargetIcon}
+                  size={14}
+                  className={goal.done ? 'text-white' : 'text-red-500'}
+                />
+              </View>
+              {isCornerstone ? (
+                <View
+                  pointerEvents="none"
+                  className="absolute -right-1.5 -top-1.5">
+                  <Icon as={CrownIcon} size={12} className="text-amber-500" />
+                </View>
+              ) : null}
             </View>
             <View className="flex-1">
               <Text
@@ -240,11 +299,6 @@ function GoalListItem({
               {subtitle ? (
                 <Text variant="muted" className="text-xs">
                   {subtitle}
-                </Text>
-              ) : null}
-              {goal.why ? (
-                <Text variant="muted" numberOfLines={1}>
-                  {goal.why}
                 </Text>
               ) : null}
             </View>

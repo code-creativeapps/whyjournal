@@ -72,6 +72,7 @@ create table if not exists public.milestones (
   title text not null,
   body text,
   target_date text,
+  reward text,
   done boolean not null default false,
   completed_at timestamptz,
   position int not null default 0,
@@ -79,6 +80,25 @@ create table if not exists public.milestones (
 );
 create index if not exists milestones_user_idx on public.milestones (user_id);
 create index if not exists milestones_goal_idx on public.milestones (goal_id);
+
+-- =============================================================================
+-- goal_images (photo attachments per goal — uploads or stock-API URLs)
+--   source: 'upload' | 'pexels'
+--   url:    public URL fetched by <Image>. For uploads, points at the
+--           goal-images Storage bucket; for Pexels, the original photo URL.
+-- =============================================================================
+create table if not exists public.goal_images (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  goal_id uuid not null references public.goals(id) on delete cascade,
+  url text not null,
+  source text not null check (source in ('upload', 'pexels')),
+  attribution text,
+  position int not null default 0,
+  created_at timestamptz not null default now()
+);
+create index if not exists goal_images_goal_idx on public.goal_images (goal_id, position);
+create index if not exists goal_images_user_idx on public.goal_images (user_id);
 
 -- =============================================================================
 -- trophies
@@ -167,7 +187,7 @@ do $$
 declare
   t text;
 begin
-  for t in select unnest(array['entries','affirmations','bucket_items','goals','milestones','routines','habits','habit_completions','trophies','todos']) loop
+  for t in select unnest(array['entries','affirmations','bucket_items','goals','goal_images','milestones','routines','habits','habit_completions','trophies','todos']) loop
     execute format('alter table public.%I enable row level security', t);
 
     execute format('drop policy if exists "select own" on public.%I', t);
@@ -215,6 +235,7 @@ alter table public.milestones add column if not exists position int not null def
 -- milestones gain goal-like fields so they can be edited in their own sheet.
 alter table public.milestones add column if not exists body text;
 alter table public.milestones add column if not exists target_date text;
+alter table public.milestones add column if not exists reward text;
 
 -- todos can attach to a goal OR a milestone (at most one).
 alter table public.todos add column if not exists goal_id uuid references public.goals(id) on delete cascade;
@@ -224,3 +245,39 @@ alter table public.todos add constraint todos_one_parent
   check (goal_id is null or milestone_id is null);
 create index if not exists todos_goal_idx on public.todos (goal_id);
 create index if not exists todos_milestone_idx on public.todos (milestone_id);
+
+-- =============================================================================
+-- Storage: goal-images bucket
+-- Public bucket — URLs are embedded as goal_images.url and rendered directly.
+-- Folder convention: {user_id}/{goal_id}/{uuid}.{ext}; the user_id segment
+-- is what the policies key off.
+-- =============================================================================
+insert into storage.buckets (id, name, public)
+  values ('goal-images', 'goal-images', true)
+  on conflict (id) do update set public = excluded.public;
+
+drop policy if exists "goal-images public read" on storage.objects;
+drop policy if exists "goal-images user write" on storage.objects;
+drop policy if exists "goal-images user update" on storage.objects;
+drop policy if exists "goal-images user delete" on storage.objects;
+
+create policy "goal-images public read" on storage.objects
+  for select using (bucket_id = 'goal-images');
+
+create policy "goal-images user write" on storage.objects
+  for insert with check (
+    bucket_id = 'goal-images'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+create policy "goal-images user update" on storage.objects
+  for update using (
+    bucket_id = 'goal-images'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+create policy "goal-images user delete" on storage.objects
+  for delete using (
+    bucket_id = 'goal-images'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );

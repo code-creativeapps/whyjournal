@@ -15,6 +15,7 @@ import { useAuthStore } from '@/lib/stores/auth';
 import { useEntriesStore } from '@/lib/stores/entries';
 import { useAffirmationsStore } from '@/lib/stores/affirmations';
 import { useBucketStore } from '@/lib/stores/bucket';
+import { useGoalImagesStore } from '@/lib/stores/goal-images';
 import { useGoalsStore } from '@/lib/stores/goals';
 import { useHabitCompletionsStore } from '@/lib/stores/habit-completions';
 import { useHabitsStore } from '@/lib/stores/habits';
@@ -51,6 +52,7 @@ export default function RootLayout() {
       useAffirmationsStore.getState().reset();
       useBucketStore.getState().reset();
       useGoalsStore.getState().reset();
+      useGoalImagesStore.getState().reset();
       useMilestonesStore.getState().reset();
       useRoutinesStore.getState().reset();
       useHabitsStore.getState().reset();
@@ -65,6 +67,7 @@ export default function RootLayout() {
     useAffirmationsStore.getState().hydrate().catch(() => {});
     useBucketStore.getState().hydrate().catch(() => {});
     useGoalsStore.getState().hydrate().catch(() => {});
+    useGoalImagesStore.getState().hydrate().catch(() => {});
     useMilestonesStore.getState().hydrate().catch(() => {});
     useRoutinesStore.getState().hydrate().catch(() => {});
     useHabitsStore.getState().hydrate().catch(() => {});

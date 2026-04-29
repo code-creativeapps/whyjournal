@@ -1,5 +1,10 @@
+import {
+  BottomSheetModal,
+  BottomSheetModalProvider,
+} from '@gorhom/bottom-sheet';
+import { Image } from 'expo-image';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { Trash2Icon } from 'lucide-react-native';
+import { ImagePlusIcon, Trash2Icon, XIcon } from 'lucide-react-native';
 import * as React from 'react';
 import {
   Alert,
@@ -11,14 +16,23 @@ import {
   View,
 } from 'react-native';
 
+import { GoalImagePickerSheet, type PickedImage } from '@/components/goal-image-picker-sheet';
 import { MilestoneEditor } from '@/components/milestone-editor';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import type { Goal, MilestoneDraft } from '@/lib/goals/types';
+import { useGoalImagesStore } from '@/lib/stores/goal-images';
 import { useGoalsStore } from '@/lib/stores/goals';
 import { useMilestonesStore } from '@/lib/stores/milestones';
+
+type ImageDraft = {
+  id?: string;
+  url: string;
+  source: 'upload' | 'pexels';
+  attribution?: string;
+};
 
 export default function GoalFormScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -33,6 +47,10 @@ export default function GoalFormScreen() {
   const addMilestone = useMilestonesStore((state) => state.addItem);
   const updateMilestone = useMilestonesStore((state) => state.updateItem);
   const deleteMilestone = useMilestonesStore((state) => state.deleteItem);
+
+  const allImages = useGoalImagesStore((s) => s.items);
+  const addImage = useGoalImagesStore((s) => s.addItem);
+  const deleteImage = useGoalImagesStore((s) => s.deleteItem);
 
   const isEditing = Boolean(id);
 
@@ -64,6 +82,25 @@ export default function GoalFormScreen() {
       position: m.position,
     }))
   );
+
+  const initialImagesRef = React.useRef(
+    id
+      ? allImages
+          .filter((img) => img.goalId === id)
+          .slice()
+          .sort((a, b) => a.position - b.position || a.createdAt.localeCompare(b.createdAt))
+      : []
+  );
+  const [images, setImages] = React.useState<ImageDraft[]>(() =>
+    initialImagesRef.current.map((img) => ({
+      id: img.id,
+      url: img.url,
+      source: img.source,
+      attribution: img.attribution,
+    }))
+  );
+
+  const pickerRef = React.useRef<BottomSheetModal>(null);
   const [saving, setSaving] = React.useState(false);
 
   const canSave = title.trim().length > 0 && !saving;
@@ -134,6 +171,32 @@ export default function GoalFormScreen() {
         }
       }
 
+      // Sync images — diff drafts vs initial. New drafts have no `id`
+      // (they were uploaded into Storage / picked from Pexels but not yet
+      // persisted as a row). Removed drafts are deleted from goal_images.
+      const initialImages = initialImagesRef.current;
+      const initialImageIds = new Set(initialImages.map((i) => i.id));
+      const keptImageIds = new Set<string>();
+      for (let i = 0; i < images.length; i++) {
+        const img = images[i];
+        if (img.id && initialImageIds.has(img.id)) {
+          keptImageIds.add(img.id);
+        } else {
+          await addImage({
+            goalId,
+            url: img.url,
+            source: img.source,
+            attribution: img.attribution,
+            position: i,
+          });
+        }
+      }
+      for (const img of initialImages) {
+        if (!keptImageIds.has(img.id)) {
+          await deleteImage(img.id);
+        }
+      }
+
       router.back();
     } finally {
       setSaving(false);
@@ -159,7 +222,7 @@ export default function GoalFormScreen() {
   }
 
   return (
-    <>
+    <BottomSheetModalProvider>
       <Stack.Screen
         options={{
           title: isEditing ? 'Edit goal' : 'New goal',
@@ -208,6 +271,35 @@ export default function GoalFormScreen() {
               className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-base text-foreground"
             />
           </Field>
+
+          {isEditing && id ? (
+            <Field
+              label="Images"
+              hint="Backdrop for the goal — upload your own or pull from Pexels.">
+              <ImageDraftRow
+                images={images}
+                onRemove={(idx) =>
+                  setImages((prev) => prev.filter((_, i) => i !== idx))
+                }
+                onAdd={() => pickerRef.current?.present()}
+              />
+              <GoalImagePickerSheet
+                ref={pickerRef}
+                goalId={id}
+                onPick={(picked: PickedImage) => {
+                  setImages((prev) => [
+                    ...prev,
+                    {
+                      url: picked.url,
+                      source: picked.source,
+                      attribution: picked.attribution,
+                    },
+                  ]);
+                  pickerRef.current?.dismiss();
+                }}
+              />
+            </Field>
+          ) : null}
 
           <Field
             label="Why does this matter?"
@@ -263,7 +355,43 @@ export default function GoalFormScreen() {
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
-    </>
+    </BottomSheetModalProvider>
+  );
+}
+
+function ImageDraftRow({
+  images,
+  onRemove,
+  onAdd,
+}: {
+  images: ImageDraft[];
+  onRemove: (index: number) => void;
+  onAdd: () => void;
+}) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+      {images.map((img, idx) => (
+        <View key={`${img.id ?? 'new'}-${idx}`} className="relative">
+          <Image
+            source={{ uri: img.url }}
+            style={{ width: 80, height: 80, borderRadius: 12 }}
+            contentFit="cover"
+            transition={120}
+          />
+          <Pressable
+            onPress={() => onRemove(idx)}
+            hitSlop={6}
+            className="absolute -right-1 -top-1 size-6 items-center justify-center rounded-full bg-black/70">
+            <Icon as={XIcon} size={14} className="text-white" />
+          </Pressable>
+        </View>
+      ))}
+      <Pressable
+        onPress={onAdd}
+        className="size-20 items-center justify-center rounded-xl border border-dashed border-border active:bg-accent">
+        <Icon as={ImagePlusIcon} size={20} className="text-muted-foreground" />
+      </Pressable>
+    </ScrollView>
   );
 }
 

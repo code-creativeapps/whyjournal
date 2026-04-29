@@ -1,18 +1,3 @@
-import { Stack, router, useLocalSearchParams } from 'expo-router';
-import {
-  CalendarIcon,
-  CheckIcon,
-  GiftIcon,
-  PencilIcon,
-  PlusIcon,
-  RepeatIcon,
-  RotateCcwIcon,
-  SparklesIcon,
-  TargetIcon,
-} from 'lucide-react-native';
-import * as React from 'react';
-import { Dimensions, Pressable, ScrollView, View } from 'react-native';
-import ConfettiCannon from 'react-native-confetti-cannon';
 import {
   BottomSheetBackdrop,
   BottomSheetModal,
@@ -20,6 +5,35 @@ import {
   BottomSheetScrollView,
   type BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
+import { Image } from 'expo-image';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
+import {
+  AlignLeftIcon,
+  CalendarIcon,
+  CheckIcon,
+  GiftIcon,
+  HeartIcon,
+  ImagesIcon,
+  PencilIcon,
+  PlusIcon,
+  RepeatIcon,
+  RotateCcwIcon,
+  TargetIcon,
+  TrendingUpIcon,
+  XIcon,
+  type LucideIcon,
+} from 'lucide-react-native';
+import * as React from 'react';
+import {
+  Dimensions,
+  FlatList,
+  Modal,
+  Pressable,
+  ScrollView,
+  View,
+} from 'react-native';
+import ConfettiCannon from 'react-native-confetti-cannon';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimatedBorder } from '@/components/animated-border';
 import { HoldToConfirmButton } from '@/components/hold-to-confirm-button';
@@ -27,15 +41,16 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { celebrateGoal, onCelebrateGoal } from '@/lib/celebrate';
+import type { GoalImage } from '@/lib/goal-images/types';
 import { goalProgress } from '@/lib/goals/progress';
 import { goalVelocity } from '@/lib/goals/velocity';
 import type { Habit } from '@/lib/habits/types';
+import { useGoalImagesStore } from '@/lib/stores/goal-images';
 import { useGoalsStore } from '@/lib/stores/goals';
 import { useHabitCompletionsStore } from '@/lib/stores/habit-completions';
 import { useHabitsStore } from '@/lib/stores/habits';
 import { useMilestonesStore } from '@/lib/stores/milestones';
 import { useTodosStore } from '@/lib/stores/todos';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cn } from '@/lib/utils';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -53,6 +68,7 @@ export default function GoalDetailScreen() {
   const allTodos = useTodosStore((state) => state.items);
   const allHabits = useHabitsStore((state) => state.items);
   const allHabitCompletions = useHabitCompletionsStore((state) => state.items);
+  const allImages = useGoalImagesStore((state) => state.items);
 
   const [tab, setTab] = React.useState<GoalTab>('description');
 
@@ -71,6 +87,14 @@ export default function GoalDetailScreen() {
     () => (goal ? goalProgress(goal, milestones) : null),
     [goal, milestones]
   );
+
+  const goalImages = React.useMemo(() => {
+    if (!id) return [];
+    return allImages
+      .filter((img) => img.goalId === id)
+      .slice()
+      .sort((a, b) => a.position - b.position || a.createdAt.localeCompare(b.createdAt));
+  }, [allImages, id]);
 
   const habitsForGoal = React.useMemo(() => {
     if (!id) return [];
@@ -92,10 +116,10 @@ export default function GoalDetailScreen() {
     });
   }, [id, allMilestones, allTodos, allHabits, allHabitCompletions]);
 
+  const insets = useSafeAreaInsets();
   // Each celebration bumps this counter; ConfettiCannon is mounted with that
   // counter as a key so it remounts fresh and auto-starts. Avoids the un-fired
   // cannon's stacked confetti pieces showing as a visual glitch on the screen.
-  const insets = useSafeAreaInsets();
   const [confettiTrigger, setConfettiTrigger] = React.useState(0);
 
   React.useEffect(
@@ -145,78 +169,87 @@ export default function GoalDetailScreen() {
         }}
       />
       <View className="flex-1">
-      <View className="gap-6 px-6 pt-8 pb-4">
-        <View className="items-center gap-4">
-          <View
-            className={cn(
-              'size-20 items-center justify-center rounded-full',
-              goal.done ? 'bg-green-600' : 'bg-red-500/15'
-            )}>
-            <Icon
-              as={TargetIcon}
-              size={40}
-              className={goal.done ? 'text-white' : 'text-red-500'}
-            />
-          </View>
-          <Text
-            variant="h2"
-            className={cn(
-              'border-b-0 pb-0 text-center',
-              goal.done && 'text-muted-foreground line-through'
-            )}>
-            {goal.title}
-          </Text>
-          {goal.targetDate ? (
-            <View className="flex-row items-center gap-1.5 rounded-full bg-muted px-3 py-1">
-              <Icon as={CalendarIcon} size={13} className="text-muted-foreground" />
-              <Text variant="small" className="text-sm text-muted-foreground">
-                {goal.targetDate}
-              </Text>
+        <View className="gap-3 px-6 pb-4 pt-6">
+          <View className="items-center gap-3">
+            <View
+              className={cn(
+                'size-16 items-center justify-center rounded-full',
+                goal.done ? 'bg-green-600' : 'bg-red-500/15'
+              )}>
+              <Icon
+                as={TargetIcon}
+                size={32}
+                className={goal.done ? 'text-white' : 'text-red-500'}
+              />
             </View>
-          ) : null}
+            <Text
+              variant="h2"
+              className={cn(
+                'border-b-0 pb-0 text-center',
+                goal.done && 'text-muted-foreground line-through'
+              )}>
+              {goal.title}
+            </Text>
+            {goal.targetDate ? (
+              <View className="flex-row items-center gap-1.5 rounded-full bg-muted px-3 py-1">
+                <Icon as={CalendarIcon} size={13} className="text-muted-foreground" />
+                <Text variant="small" className="text-sm text-muted-foreground">
+                  {goal.targetDate}
+                </Text>
+              </View>
+            ) : null}
+          </View>
         </View>
 
-        <SegmentedTab value={tab} onChange={setTab} />
-      </View>
+        <View className="px-6 pb-3">
+          <SegmentedTab value={tab} onChange={setTab} />
+        </View>
 
-      {tab === 'description' ? (
-        <DescriptionTab goal={goal} velocity={velocity} />
-      ) : null}
-      {tab === 'milestones' ? (
-        <MilestonesTab
-          goalId={goal.id}
-          milestones={milestones}
-          progress={progress}
-          hasMilestones={hasMilestones}
-        />
-      ) : null}
-      {tab === 'systems' ? (
-        <SystemsTab goalId={goal.id} habits={habitsForGoal} />
-      ) : null}
+        {tab === 'description' ? (
+          <DescriptionTab
+            goal={goal}
+            velocity={velocity}
+            images={goalImages}
+            onEdit={() =>
+              router.push({ pathname: '/goal', params: { id: goal.id } })
+            }
+          />
+        ) : null}
+        {tab === 'milestones' ? (
+          <MilestonesTab
+            goalId={goal.id}
+            milestones={milestones}
+            progress={progress}
+            hasMilestones={hasMilestones}
+          />
+        ) : null}
+        {tab === 'systems' ? (
+          <SystemsTab goalId={goal.id} habits={habitsForGoal} />
+        ) : null}
 
-      <View
-        className="border-t border-border bg-background px-6 pt-3"
-        style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
-        {goal.done ? (
-          // Match outer height of AnimatedBorder (which adds 2pt padding all around).
-          <View style={{ padding: 2 }}>
-            <HoldToConfirmButton
-              label="Hold to mark as not completed"
-              icon={RotateCcwIcon}
-              onConfirm={handleMarkNotCompleted}
-              silent
-            />
-          </View>
-        ) : (
-          <AnimatedBorder>
-            <HoldToConfirmButton
-              label="Hold to mark as completed"
-              icon={CheckIcon}
-              onConfirm={handleMarkCompleted}
-            />
-          </AnimatedBorder>
-        )}
-      </View>
+        <View
+          className="border-t border-border bg-background px-6 pt-3"
+          style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
+          {goal.done ? (
+            // Match outer height of AnimatedBorder (which adds 2pt padding all around).
+            <View style={{ padding: 2 }}>
+              <HoldToConfirmButton
+                label="Hold to mark as not completed"
+                icon={RotateCcwIcon}
+                onConfirm={handleMarkNotCompleted}
+                silent
+              />
+            </View>
+          ) : (
+            <AnimatedBorder>
+              <HoldToConfirmButton
+                label="Hold to mark as completed"
+                icon={CheckIcon}
+                onConfirm={handleMarkCompleted}
+              />
+            </AnimatedBorder>
+          )}
+        </View>
       </View>
       {confettiTrigger > 0 ? (
         <View pointerEvents="none" className="absolute inset-0">
@@ -277,61 +310,239 @@ function SegmentedTab({
 function DescriptionTab({
   goal,
   velocity,
+  images,
+  onEdit,
 }: {
   goal: { body?: string; why?: string; reward?: string };
   velocity: { date: string; count: number }[];
+  images: GoalImage[];
+  onEdit: () => void;
 }) {
+  const [lightboxIndex, setLightboxIndex] = React.useState<number | null>(null);
   return (
     <ScrollView
       style={{ flex: 1 }}
       contentContainerClassName="gap-6 px-6 pb-6">
-      <View className="gap-1">
-        <Text variant="muted" className="text-xs uppercase tracking-wide">
-          Vivid description
-        </Text>
+      {images.length > 0 ? (
+        <VisionBoard images={images} onTap={(i) => setLightboxIndex(i)} />
+      ) : null}
+
+      <View className="gap-1.5">
+        <SectionLabel
+          icon={AlignLeftIcon}
+          label="Vivid description"
+          iconClass="text-sky-500"
+        />
         {goal.body ? (
           <Text className="text-base leading-6">{goal.body}</Text>
         ) : (
-          <Text variant="muted" className="text-base italic leading-6">
-            Paint the picture of what done looks like. Tap Edit to fill in.
-          </Text>
+          <EmptyFieldPrompt
+            text="Paint the picture of what done looks like."
+            onPress={onEdit}
+          />
         )}
       </View>
 
-      <View className="gap-1">
-        <Text variant="muted" className="text-xs uppercase tracking-wide">
-          Why it matters
-        </Text>
+      <View className="gap-1.5">
+        <SectionLabel
+          icon={HeartIcon}
+          label="Why it matters"
+          iconClass="text-rose-500"
+        />
         {goal.why ? (
           <Text className="text-base leading-6">{goal.why}</Text>
         ) : (
-          <Text variant="muted" className="text-base italic leading-6">
-            What changes once you get there? Tap Edit to fill in.
-          </Text>
+          <EmptyFieldPrompt
+            text="What changes once you get there?"
+            onPress={onEdit}
+          />
         )}
       </View>
 
-      <View className="gap-1">
-        <Text variant="muted" className="text-xs uppercase tracking-wide">
-          Reward
-        </Text>
+      <View className="gap-1.5">
+        <SectionLabel
+          icon={GiftIcon}
+          label="Reward"
+          iconClass="text-amber-500"
+        />
         {goal.reward ? (
           <View className="flex-row items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
             <Icon as={GiftIcon} size={18} className="text-amber-500" />
             <Text className="flex-1 text-base leading-6">{goal.reward}</Text>
           </View>
         ) : (
-          <View className="flex-row items-start gap-3 rounded-xl border border-dashed border-border p-4">
+          <Pressable
+            onPress={onEdit}
+            className="flex-row items-start gap-3 rounded-xl border border-dashed border-border p-4 active:bg-accent">
             <Icon as={GiftIcon} size={18} className="text-muted-foreground" />
             <Text variant="muted" className="flex-1 text-base italic leading-6">
-              How will you celebrate? Tap Edit to fill in.
+              How will you celebrate? Tap to add.
             </Text>
-          </View>
+          </Pressable>
         )}
       </View>
 
       <VelocityChart days={velocity} />
+
+      <Lightbox
+        images={images}
+        openIndex={lightboxIndex}
+        onClose={() => setLightboxIndex(null)}
+      />
     </ScrollView>
+  );
+}
+
+function EmptyFieldPrompt({
+  text,
+  onPress,
+}: {
+  text: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      className="rounded-md border border-dashed border-border p-3 active:bg-accent">
+      <Text variant="muted" className="text-base italic leading-6">
+        {text} Tap to add.
+      </Text>
+    </Pressable>
+  );
+}
+
+const VISION_BOARD_GAP = 8;
+const VISION_BOARD_TILE = 132;
+
+function VisionBoard({
+  images,
+  onTap,
+}: {
+  images: GoalImage[];
+  onTap: (index: number) => void;
+}) {
+  return (
+    <View className="-mx-6 gap-2">
+      <View className="px-6">
+        <SectionLabel
+          icon={ImagesIcon}
+          label="Vision board"
+          iconClass="text-violet-500"
+        />
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingHorizontal: 24,
+          gap: VISION_BOARD_GAP,
+        }}>
+        {images.map((img, idx) => (
+          <Pressable
+            key={img.id}
+            onPress={() => onTap(idx)}
+            style={{ width: VISION_BOARD_TILE, height: VISION_BOARD_TILE }}
+            className="overflow-hidden rounded-xl active:opacity-80">
+            <Image
+              source={{ uri: img.url }}
+              style={{ width: '100%', height: '100%' }}
+              contentFit="cover"
+              transition={120}
+            />
+          </Pressable>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+function Lightbox({
+  images,
+  openIndex,
+  onClose,
+}: {
+  images: GoalImage[];
+  openIndex: number | null;
+  onClose: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const width = SCREEN_WIDTH;
+  const [currentIndex, setCurrentIndex] = React.useState(openIndex ?? 0);
+
+  React.useEffect(() => {
+    if (openIndex !== null) setCurrentIndex(openIndex);
+  }, [openIndex]);
+
+  const visible = openIndex !== null;
+  const currentAttribution =
+    visible && images[currentIndex] ? images[currentIndex].attribution : undefined;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      presentationStyle="overFullScreen"
+      onRequestClose={onClose}>
+      <View className="flex-1 bg-black">
+        <FlatList
+          data={images}
+          keyExtractor={(img) => img.id}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          initialScrollIndex={openIndex ?? 0}
+          getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
+          onMomentumScrollEnd={(e) => {
+            const idx = Math.round(e.nativeEvent.contentOffset.x / width);
+            if (idx !== currentIndex) setCurrentIndex(idx);
+          }}
+          renderItem={({ item }) => (
+            <View style={{ width, flex: 1 }}>
+              <Image
+                source={{ uri: item.url }}
+                style={{ flex: 1 }}
+                contentFit="contain"
+                transition={120}
+              />
+            </View>
+          )}
+        />
+        <Pressable
+          onPress={onClose}
+          hitSlop={8}
+          style={{ top: insets.top + 6 }}
+          className="absolute right-3 size-10 items-center justify-center rounded-full bg-white/15 active:bg-white/25">
+          <Icon as={XIcon} size={20} className="text-white" />
+        </Pressable>
+        {currentAttribution ? (
+          <View
+            style={{ bottom: insets.bottom + 12 }}
+            className="absolute left-0 right-0 items-center px-6">
+            <Text className="text-center text-xs text-white/70">{currentAttribution}</Text>
+          </View>
+        ) : null}
+      </View>
+    </Modal>
+  );
+}
+
+function SectionLabel({
+  icon,
+  label,
+  iconClass,
+}: {
+  icon: LucideIcon;
+  label: string;
+  iconClass?: string;
+}) {
+  return (
+    <View className="flex-row items-center gap-1.5">
+      <Icon as={icon} size={13} className={iconClass ?? 'text-muted-foreground'} />
+      <Text variant="muted" className="text-xs uppercase tracking-wide">
+        {label}
+      </Text>
+    </View>
   );
 }
 
@@ -341,12 +552,11 @@ function VelocityChart({ days }: { days: { date: string; count: number }[] }) {
 
   return (
     <View className="gap-2">
-      <View className="flex-row items-center gap-1.5">
-        <Icon as={SparklesIcon} size={13} className="text-muted-foreground" />
-        <Text variant="muted" className="text-xs uppercase tracking-wide">
-          Velocity · last {days.length} days
-        </Text>
-      </View>
+      <SectionLabel
+        icon={TrendingUpIcon}
+        label={`Velocity · last ${days.length} days`}
+        iconClass="text-emerald-500"
+      />
       {total === 0 ? (
         <Text variant="muted" className="text-sm">
           No activity yet — complete a milestone, todo, or linked habit.

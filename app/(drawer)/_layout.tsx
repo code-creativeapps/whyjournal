@@ -3,7 +3,7 @@ import {
   type DrawerContentComponentProps,
 } from '@react-navigation/drawer';
 import { Drawer } from 'expo-router/drawer';
-import { Redirect, router } from 'expo-router';
+import { Redirect } from 'expo-router';
 import {
   BarChart3Icon,
   CheckSquareIcon,
@@ -11,7 +11,6 @@ import {
   type LucideIcon,
   QuoteIcon,
   RepeatIcon,
-  SearchIcon,
   StarIcon,
   TargetIcon,
   TrophyIcon,
@@ -19,6 +18,7 @@ import {
 import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { SearchHeaderButton } from '@/components/search-header-button';
 import { StatPill } from '@/components/stat-pill';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -173,17 +173,6 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
         />
       </View>
     </View>
-  );
-}
-
-function SearchHeaderButton() {
-  return (
-    <Pressable
-      onPress={() => router.push('/search')}
-      hitSlop={8}
-      className="px-3 py-2 active:opacity-60">
-      <Icon as={SearchIcon} size={20} className="text-foreground" />
-    </Pressable>
   );
 }
 

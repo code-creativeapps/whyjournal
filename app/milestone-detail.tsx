@@ -2,6 +2,7 @@ import { Stack, router, useLocalSearchParams } from 'expo-router';
 import {
   CalendarIcon,
   CheckIcon,
+  GiftIcon,
   PencilIcon,
   RotateCcwIcon,
   TargetIcon,
@@ -135,6 +136,21 @@ export default function MilestoneDetailScreen() {
           <Text className="text-center text-base leading-7 text-foreground">
             {milestone.body}
           </Text>
+        ) : null}
+
+        {milestone.reward ? (
+          <View className="gap-1.5">
+            <View className="flex-row items-center gap-1.5">
+              <Icon as={GiftIcon} size={13} className="text-amber-500" />
+              <Text variant="muted" className="text-xs uppercase tracking-wide">
+                Reward
+              </Text>
+            </View>
+            <View className="flex-row items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+              <Icon as={GiftIcon} size={18} className="text-amber-500" />
+              <Text className="flex-1 text-base leading-6">{milestone.reward}</Text>
+            </View>
+          </View>
         ) : null}
 
         <View className="mt-2">
