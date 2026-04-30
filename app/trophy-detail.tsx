@@ -47,7 +47,7 @@ export default function TrophyDetailScreen() {
           <View className="size-20 items-center justify-center rounded-full bg-amber-500/15">
             <Icon as={TrophyIcon} size={40} className="text-amber-500" />
           </View>
-          <Text variant="h2" className="text-center">
+          <Text variant="h2" className="border-b-0 pb-0 text-center">
             {item.title}
           </Text>
           {item.when ? (

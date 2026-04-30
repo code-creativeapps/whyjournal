@@ -161,7 +161,7 @@ export default function MilestoneDetailScreen() {
       </ScrollView>
 
       <View
-        className="border-t border-border bg-background px-6 pt-3"
+        className="bg-background px-6 pt-3"
         style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
         {milestone.done ? (
           <View style={{ padding: 2 }}>

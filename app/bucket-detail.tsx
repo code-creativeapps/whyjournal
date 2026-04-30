@@ -66,7 +66,10 @@ export default function BucketDetailScreen() {
             </View>
             <Text
               variant="h2"
-              className={cn('text-center', item.done && 'text-muted-foreground line-through')}>
+              className={cn(
+                'border-b-0 pb-0 text-center',
+                item.done && 'text-muted-foreground line-through'
+              )}>
               {item.title}
             </Text>
           </View>
@@ -77,7 +80,7 @@ export default function BucketDetailScreen() {
         </ScrollView>
 
         <View
-          className="border-t border-border bg-background px-6 pt-3"
+          className="bg-background px-6 pt-3"
           style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
           {item.done ? (
             <View className="flex-row items-center justify-center gap-2 rounded-full bg-green-500/15 px-3 py-2">

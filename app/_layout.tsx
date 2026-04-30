@@ -139,7 +139,13 @@ export default function RootLayout() {
             />
             <Stack.Screen
               name="trophy-detail"
-              options={{ headerShown: true, title: 'Trophy', presentation: 'formSheet' }}
+              options={{
+                headerShown: true,
+                title: 'Trophy',
+                presentation: 'formSheet',
+                contentStyle: { flex: 1 },
+                sheetAllowedDetents: 'fitToContents',
+              }}
             />
             <Stack.Screen
               name="habit-detail"
