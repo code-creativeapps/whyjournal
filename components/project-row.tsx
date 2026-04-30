@@ -9,21 +9,27 @@ import type { Todo } from '@/lib/todos/types';
 import { cn } from '@/lib/utils';
 
 export type ProjectRowMilestone = { id: string; title: string };
+export type ProjectRowGoal = { id: string; title: string };
 
 export function ProjectRow({
   project,
+  goal,
   milestone,
   tasks,
 }: {
   project: Project;
+  goal?: ProjectRowGoal;
   milestone?: ProjectRowMilestone;
   tasks: Todo[];
 }) {
   const total = tasks.length;
   const done = tasks.filter((t) => t.done).length;
+  // Goal first; only fall back to the milestone label when no goal is being
+  // displayed (e.g. inside goal-detail where the goal is already implied).
+  const parentLabel = goal?.title ?? milestone?.title;
   const subtitleParts: string[] = [];
+  if (parentLabel) subtitleParts.push(parentLabel);
   if (total > 0) subtitleParts.push(`${done} / ${total} tasks`);
-  if (milestone) subtitleParts.push(milestone.title);
   const subtitle = subtitleParts.join(' · ') || undefined;
 
   return (

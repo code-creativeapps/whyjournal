@@ -1,26 +1,17 @@
-import { router } from 'expo-router';
-import { ChevronRightIcon } from 'lucide-react-native';
 import * as React from 'react';
-import { Pressable, SectionList, View } from 'react-native';
+import { FlatList, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fab } from '@/components/fab';
 import { ProjectRow } from '@/components/project-row';
 import { SwipeableScreen } from '@/components/swipeable-screen';
-import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { GoalIconCircle } from '@/lib/goals/icon';
 import type { Goal } from '@/lib/goals/types';
+import type { Project } from '@/lib/projects/types';
 import { useGoalsStore } from '@/lib/stores/goals';
 import { useMilestonesStore } from '@/lib/stores/milestones';
 import { useProjectsStore } from '@/lib/stores/projects';
 import { useTodosStore } from '@/lib/stores/todos';
-import type { Project } from '@/lib/projects/types';
-
-type Section = {
-  goal: Goal;
-  data: Project[];
-};
 
 export default function ProjectsScreen() {
   const projects = useProjectsStore((s) => s.items);
@@ -30,12 +21,16 @@ export default function ProjectsScreen() {
   const todos = useTodosStore((s) => s.items);
   const insets = useSafeAreaInsets();
 
+  const goalById = React.useMemo(() => {
+    const map = new Map<string, Goal>();
+    for (const g of goals) map.set(g.id, g);
+    return map;
+  }, [goals]);
   const milestoneById = React.useMemo(() => {
     const map = new Map<string, (typeof milestones)[number]>();
     for (const m of milestones) map.set(m.id, m);
     return map;
   }, [milestones]);
-
   const tasksByProject = React.useMemo(() => {
     const map = new Map<string, typeof todos>();
     for (const t of todos) {
@@ -47,33 +42,34 @@ export default function ProjectsScreen() {
     return map;
   }, [todos]);
 
-  const sections: Section[] = React.useMemo(() => {
-    // Walk goals in their list order (positions); within each goal, project
-    // position then createdAt. Goals with no projects are skipped.
-    const byGoal = new Map<string, Project[]>();
-    for (const p of projects) {
-      const list = byGoal.get(p.goalId) ?? [];
-      list.push(p);
-      byGoal.set(p.goalId, list);
-    }
-    for (const list of byGoal.values()) {
-      list.sort(
-        (a, b) =>
-          (a.position ?? 0) - (b.position ?? 0) ||
-          a.createdAt.localeCompare(b.createdAt)
-      );
-    }
-    const sortedGoals = goals
+  // Order projects by their goal's order, then by the project's own position
+  // within that goal — same effective ordering as the by-goal grouping had,
+  // just flattened into one list.
+  const goalOrder = React.useMemo(() => {
+    const order = new Map<string, number>();
+    const sorted = goals
       .slice()
       .sort(
         (a, b) =>
           (a.position ?? 0) - (b.position ?? 0) ||
           b.createdAt.localeCompare(a.createdAt)
       );
-    return sortedGoals
-      .filter((g) => (byGoal.get(g.id)?.length ?? 0) > 0)
-      .map((g) => ({ goal: g, data: byGoal.get(g.id) ?? [] }));
-  }, [projects, goals]);
+    sorted.forEach((g, i) => order.set(g.id, i));
+    return order;
+  }, [goals]);
+
+  const sorted = React.useMemo(() => {
+    return projects.slice().sort((a, b) => {
+      const goalDelta =
+        (goalOrder.get(a.goalId) ?? Number.MAX_SAFE_INTEGER) -
+        (goalOrder.get(b.goalId) ?? Number.MAX_SAFE_INTEGER);
+      if (goalDelta !== 0) return goalDelta;
+      return (
+        (a.position ?? 0) - (b.position ?? 0) ||
+        a.createdAt.localeCompare(b.createdAt)
+      );
+    });
+  }, [projects, goalOrder]);
 
   return (
     <SwipeableScreen route="projects">
@@ -88,43 +84,22 @@ export default function ProjectsScreen() {
             </Text>
           </View>
         ) : (
-          <SectionList
-            sections={sections}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <ProjectRow
-                project={item}
-                milestone={
-                  item.milestoneId ? milestoneById.get(item.milestoneId) : undefined
-                }
-                tasks={tasksByProject.get(item.id) ?? []}
-              />
-            )}
-            renderSectionHeader={({ section }) => (
-              <Pressable
-                onPress={() =>
-                  router.push({
-                    pathname: '/goal-detail',
-                    params: { id: section.goal.id },
-                  })
-                }
-                className="flex-row items-center gap-2 bg-background px-4 pb-1 pt-3 active:bg-accent">
-                <GoalIconCircle
-                  icon={section.goal.icon}
-                  done={section.goal.done}
-                  size="sm"
+          <FlatList
+            data={sorted}
+            keyExtractor={(item: Project) => item.id}
+            renderItem={({ item }) => {
+              const goal = goalById.get(item.goalId);
+              return (
+                <ProjectRow
+                  project={item}
+                  goal={goal ? { id: goal.id, title: goal.title } : undefined}
+                  milestone={
+                    item.milestoneId ? milestoneById.get(item.milestoneId) : undefined
+                  }
+                  tasks={tasksByProject.get(item.id) ?? []}
                 />
-                <Text className="flex-1 text-sm font-semibold" numberOfLines={1}>
-                  {section.goal.title}
-                </Text>
-                <Icon
-                  as={ChevronRightIcon}
-                  size={14}
-                  className="text-muted-foreground"
-                />
-              </Pressable>
-            )}
-            stickySectionHeadersEnabled={false}
+              );
+            }}
             ItemSeparatorComponent={() => <View className="h-px bg-border" />}
             contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
           />
