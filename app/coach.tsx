@@ -29,15 +29,18 @@ import { CoachThinking } from '@/components/coach-thinking';
 import { HoldToConfirmButton } from '@/components/hold-to-confirm-button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { askPlan, askQuestions, transcribeAudio } from '@/lib/coach/api';
+import { askDiscover, askPlan, askQuestions, transcribeAudio } from '@/lib/coach/api';
 import { applyPlan } from '@/lib/coach/apply-plan';
 import { useCoachRecorder } from '@/lib/coach/recorder';
 import type {
   CoachAnswers,
+  CoachMode,
   CoachPhase,
   CoachPlanResponse,
+  DiscoverTurn,
   GeneratedStep,
 } from '@/lib/coach/types';
+import { DEEP_TOTAL_TURNS } from '@/lib/coach/types';
 import { useGoalsStore } from '@/lib/stores/goals';
 import { useMilestonesStore } from '@/lib/stores/milestones';
 import { useProjectsStore } from '@/lib/stores/projects';
@@ -45,6 +48,8 @@ import { cn } from '@/lib/utils';
 
 type Stage =
   | { kind: 'welcome' }
+  | { kind: 'mode_picker'; dream: string }
+  // Quick branch
   | { kind: 'loading_questions'; dream: string }
   | {
       kind: 'script';
@@ -53,6 +58,22 @@ type Stage =
       steps: GeneratedStep[];
       answers: CoachAnswers;
     }
+  // Deep branch
+  | {
+      kind: 'discover';
+      dream: string;
+      turn: number; // 1-based, current question turn
+      history: DiscoverTurn[]; // answered Q+A pairs so far
+      currentQuestion: string;
+      currentPhase: CoachPhase;
+    }
+  | {
+      kind: 'loading_discover';
+      dream: string;
+      turn: number; // turn we're loading (1..6)
+      history: DiscoverTurn[];
+    }
+  // Shared tail
   | { kind: 'loading_plan'; dream: string; answers: CoachAnswers }
   | { kind: 'plan'; plan: CoachPlanResponse };
 
@@ -100,11 +121,16 @@ export default function CoachScreen() {
   const currentPhase: CoachPhase | null = React.useMemo(() => {
     switch (stage.kind) {
       case 'welcome':
+      case 'mode_picker':
         return null;
       case 'loading_questions':
         return 'dream';
       case 'script':
         return stage.steps[stage.stepIndex]?.phase ?? null;
+      case 'discover':
+        return stage.currentPhase;
+      case 'loading_discover':
+        return 'drill_in';
       case 'loading_plan':
         return 'drill_in';
       case 'plan':
@@ -112,42 +138,129 @@ export default function CoachScreen() {
     }
   }, [stage]);
 
-  // Step-level progress within a phase, for smoother bar movement.
   const progressFraction = React.useMemo(() => {
     if (stage.kind === 'loading_questions') return 0.05;
     if (stage.kind === 'script') {
       const total = stage.steps.length;
       const idx = stage.stepIndex;
-      // 0.10..0.85 across the generated steps.
       return 0.1 + (idx / Math.max(1, total)) * 0.75;
+    }
+    if (stage.kind === 'discover') {
+      // turn 1..5 → 0.10..0.80
+      return 0.1 + ((stage.turn - 1) / DEEP_TOTAL_TURNS) * 0.7;
+    }
+    if (stage.kind === 'loading_discover') {
+      return 0.1 + ((stage.turn - 1) / DEEP_TOTAL_TURNS) * 0.7 + 0.05;
     }
     if (stage.kind === 'loading_plan') return 0.95;
     if (stage.kind === 'plan') return 1.0;
     return 0;
   }, [stage]);
 
+  // Step indicator text shown next to the phase label, e.g. "1 of 5".
+  const stepLabel: string | null = React.useMemo(() => {
+    if (stage.kind === 'discover') return `${stage.turn} of ${DEEP_TOTAL_TURNS}`;
+    if (stage.kind === 'loading_discover' && stage.turn <= DEEP_TOTAL_TURNS)
+      return `${stage.turn} of ${DEEP_TOTAL_TURNS}`;
+    if (stage.kind === 'script') return `${stage.stepIndex + 1} of ${stage.steps.length}`;
+    return null;
+  }, [stage]);
+
   // ---- Stage transitions ----------------------------------------------------
 
-  async function startFromDream(dream: string) {
+  function startFromDream(dream: string) {
     const trimmed = dream.trim();
     if (!trimmed) return;
-    setStage({ kind: 'loading_questions', dream: trimmed });
-    try {
-      const script = await askQuestions({ dream: trimmed });
-      if (!script.steps?.length) {
-        throw new Error('Coach returned no questions');
+    setStage({ kind: 'mode_picker', dream: trimmed });
+  }
+
+  async function pickMode(mode: CoachMode) {
+    if (stage.kind !== 'mode_picker') return;
+    const dream = stage.dream;
+    if (mode === 'quick') {
+      setStage({ kind: 'loading_questions', dream });
+      try {
+        const script = await askQuestions({ dream });
+        if (!script.steps?.length) throw new Error('Coach returned no questions');
+        setStage({ kind: 'script', stepIndex: 0, dream, steps: script.steps, answers: {} });
+      } catch (e) {
+        Alert.alert('Coach error', formatError(e));
+        setStage({ kind: 'mode_picker', dream });
       }
-      setStage({
-        kind: 'script',
-        stepIndex: 0,
-        dream: trimmed,
-        steps: script.steps,
-        answers: {},
+    } else {
+      // Deep: kick off turn 1
+      setStage({ kind: 'loading_discover', dream, turn: 1, history: [] });
+      try {
+        const res = await askDiscover({
+          dream,
+          history: [],
+          turn: 1,
+          totalQuestionTurns: DEEP_TOTAL_TURNS,
+        });
+        if (res.kind === 'plan') {
+          enterPlanStage(res);
+        } else {
+          setStage({
+            kind: 'discover',
+            dream,
+            turn: 1,
+            history: [],
+            currentQuestion: res.questions[0] ?? 'What does success look like for you?',
+            currentPhase: res.phase ?? 'dream',
+          });
+        }
+      } catch (e) {
+        Alert.alert('Coach error', formatError(e));
+        setStage({ kind: 'mode_picker', dream });
+      }
+    }
+  }
+
+  async function answerDiscover(answer: string) {
+    if (stage.kind !== 'discover') return;
+    const trimmed = answer.trim();
+    if (!trimmed) return;
+    const nextHistory: DiscoverTurn[] = [
+      ...stage.history,
+      { question: stage.currentQuestion, answer: trimmed },
+    ];
+    const nextTurn = stage.turn + 1;
+    setStage({
+      kind: 'loading_discover',
+      dream: stage.dream,
+      turn: nextTurn,
+      history: nextHistory,
+    });
+    try {
+      const res = await askDiscover({
+        dream: stage.dream,
+        history: nextHistory,
+        turn: nextTurn,
+        totalQuestionTurns: DEEP_TOTAL_TURNS,
       });
+      if (res.kind === 'plan') {
+        enterPlanStage(res);
+      } else {
+        setStage({
+          kind: 'discover',
+          dream: stage.dream,
+          turn: nextTurn,
+          history: nextHistory,
+          currentQuestion: res.questions[0] ?? 'Tell me more about that.',
+          currentPhase: res.phase ?? 'current_state',
+        });
+      }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      Alert.alert('Coach error', msg);
-      setStage({ kind: 'welcome' });
+      Alert.alert('Coach error', formatError(e));
+      // Bounce back to the question we were on
+      setStage({
+        kind: 'discover',
+        dream: stage.dream,
+        turn: stage.turn,
+        history: stage.history,
+        currentQuestion: stage.currentQuestion,
+        currentPhase: stage.currentPhase,
+      });
     }
   }
 
@@ -217,7 +330,8 @@ export default function CoachScreen() {
     setTextInput('');
     if (stage.kind === 'welcome') startFromDream(t);
     else if (stage.kind === 'script') answerScriptStep(t);
-    // Loading / plan: ignored.
+    else if (stage.kind === 'discover') answerDiscover(t);
+    // mode_picker / loading / plan: ignored.
   }
 
   async function handleMicPress() {
@@ -280,10 +394,18 @@ export default function CoachScreen() {
 
   // ---- Render ---------------------------------------------------------------
 
-  const isLoading = stage.kind === 'loading_questions' || stage.kind === 'loading_plan';
-  const showInput = stage.kind !== 'plan' && !isLoading;
+  const isLoading =
+    stage.kind === 'loading_questions' ||
+    stage.kind === 'loading_discover' ||
+    stage.kind === 'loading_plan';
+  const showInput =
+    stage.kind !== 'plan' && stage.kind !== 'mode_picker' && !isLoading;
   const placeholder =
-    stage.kind === 'welcome' ? 'Type or hold the mic' : 'Or type / speak your own';
+    stage.kind === 'welcome'
+      ? 'Type or hold the mic'
+      : stage.kind === 'discover'
+        ? 'Take your time — speak or type'
+        : 'Or type / speak your own';
 
   return (
     <View className="flex-1 bg-background">
@@ -297,18 +419,23 @@ export default function CoachScreen() {
           ),
         }}
       />
-      {currentPhase ? <ProgressBar phase={currentPhase} fraction={progressFraction} /> : null}
+      {currentPhase ? (
+        <ProgressBar phase={currentPhase} fraction={progressFraction} stepLabel={stepLabel} />
+      ) : null}
       <ScrollView
         style={{ flex: 1 }}
         contentContainerClassName="px-5 pt-4 pb-6 gap-4"
         contentContainerStyle={{
           flexGrow: 1,
-          justifyContent: stage.kind === 'welcome' ? 'center' : 'flex-start',
+          justifyContent:
+            stage.kind === 'welcome' || stage.kind === 'mode_picker' ? 'center' : 'flex-start',
         }}
         keyboardShouldPersistTaps="handled">
         {stage.kind === 'welcome' ? (
           <Welcome onPick={startFromDream} />
-        ) : stage.kind === 'loading_questions' ? (
+        ) : stage.kind === 'mode_picker' ? (
+          <ModePicker dream={stage.dream} onPick={pickMode} />
+        ) : stage.kind === 'loading_questions' || stage.kind === 'loading_discover' ? (
           <View className="pt-6">
             <CoachThinking />
           </View>
@@ -319,6 +446,8 @@ export default function CoachScreen() {
             suggestions={stage.steps[stage.stepIndex].suggestions}
             onPickSuggestion={answerScriptStep}
           />
+        ) : stage.kind === 'discover' ? (
+          <WizardStep ack="" question={stage.currentQuestion} suggestions={[]} onPickSuggestion={() => {}} />
         ) : stage.kind === 'loading_plan' ? (
           <View className="pt-6">
             <CoachThinking />
@@ -392,6 +521,47 @@ export default function CoachScreen() {
 // ============================================================================
 // Welcome
 // ============================================================================
+
+function ModePicker({
+  dream,
+  onPick,
+}: {
+  dream: string;
+  onPick: (m: CoachMode) => void;
+}) {
+  return (
+    <View className="gap-4">
+      <View className="items-center gap-1">
+        <Text variant="muted" className="text-center text-xs uppercase tracking-wide">
+          Your dream
+        </Text>
+        <Text className="text-center text-base">"{dream}"</Text>
+      </View>
+      <Text variant="h3" className="text-center">
+        How deep should we go?
+      </Text>
+      <View className="gap-3">
+        <Pressable
+          onPress={() => onPick('quick')}
+          className="rounded-2xl border border-border bg-card p-4 active:opacity-70">
+          <Text className="text-base font-semibold">⚡ Quick plan</Text>
+          <Text variant="muted" className="mt-1 text-sm">
+            ~3 questions, fast. Best when you already know what you want.
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => onPick('deep')}
+          className="rounded-2xl border border-border bg-card p-4 active:opacity-70">
+          <Text className="text-base font-semibold">🌊 Deep coaching</Text>
+          <Text variant="muted" className="mt-1 text-sm">
+            5 thoughtful questions, no shortcuts. Best for big or fuzzy goals — this is where the real
+            clarity happens.
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
 
 function Welcome({ onPick }: { onPick: (text: string) => void }) {
   return (
@@ -759,7 +929,15 @@ const PHASE_LABEL: Record<CoachPhase, string> = {
   ready: 'Plan ready',
 };
 
-function ProgressBar({ phase, fraction }: { phase: CoachPhase; fraction: number }) {
+function ProgressBar({
+  phase,
+  fraction,
+  stepLabel,
+}: {
+  phase: CoachPhase;
+  fraction: number;
+  stepLabel?: string | null;
+}) {
   const pct = Math.max(0, Math.min(1, fraction));
   return (
     <View className="border-b border-border bg-background px-5 py-2">
@@ -768,7 +946,7 @@ function ProgressBar({ phase, fraction }: { phase: CoachPhase; fraction: number 
           {PHASE_LABEL[phase]}
         </Text>
         <Text variant="muted" className="text-xs">
-          {Math.round(pct * 100)}%
+          {stepLabel ? `Step ${stepLabel}` : `${Math.round(pct * 100)}%`}
         </Text>
       </View>
       <View className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted">

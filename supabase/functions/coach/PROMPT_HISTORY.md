@@ -316,191 +316,108 @@ const wizardData = React.useMemo(() => {
 
 ---
 
-## v6 — Static discovery script + minimal AI calls (CURRENT)
+## v6.0 — Static discovery script (proposed but immediately corrected to v6.1)
 
-**Driver:** stop generating per-turn questions with the LLM. The discovery questions don't actually need to be model-generated — they come from the mentor's "Scaling Tiny Steps" method and are stable across sessions. Reserve LLM calls for the parts where AI judgment actually adds value.
+The first attempt at "stop calling AI per-turn" was a hardcoded universal script (`lib/coach/script.ts`, 8 fixed questions). Same idea as v6.1 below but with the questions baked in instead of model-generated. Discarded after one round of feedback because the questions need to be tailored to the dream (a reading goal needs different questions than a SaaS goal).
+
+**Total AI calls:** 1 or 2 (strategies + plan). Same as v6.1.
+
+Code: `git log --diff-filter=A -- lib/coach/script.ts` to find the commit that introduced the static `COACH_SCRIPT` array.
+
+---
+
+## v6.1 — Upfront-generated tailored questions (PREVIOUSLY CURRENT)
+
+**Driver:** v6.0's universal hardcoded script wasn't tailored enough — the questions for "read 5 books" should be different from the ones for "launch a SaaS". Solution: still pre-generate the questions upfront from the dream, but let the LLM tailor them to the specific goal. Walk them locally. Then one more LLM call to synthesize the plan.
 
 **Architecture:**
 
 ```
 Welcome → user states their dream
          ↓
-LOCAL SCRIPT (8 hardcoded questions, no AI):
-  Phase 1 — Dream:         why?, when?
-  Phase 2 — Current state: starting?, tried?, leverage?
-  Phase 3 — Constraints:   hours?, time_of_day?, constraints?
+AI #1 — "questions" mode
+  input:  { dream, context }
+  output: { message, steps: [{ id, phase, question, suggestions }, ...] }
+          (5–8 tailored questions with chips)
          ↓
-AI #1 — "strategies" mode
+LOCAL WALK — wizard cycles through `steps`, no AI
+  user taps a chip OR types/speaks a custom answer per step
+         ↓
+AI #2 — "plan" mode
   input:  { dream, answers, context }
-  output: kind="questions" with strategy options as `suggestions`
-          OR kind="plan" directly (identity-goal short-circuit)
-         ↓
-AI #2 — "plan" mode (skipped on identity short-circuit)
-  input:  { dream, answers, chosenStrategy, context }
-  output: kind="plan"
+  output: kind="plan" with the full structured plan
          ↓
 PlanPreview → Hold-to-confirm → applyPlan
 ```
 
-**Total AI calls per session:** 1 (identity goal) or 2 (strategy + plan), down from ~6–10.
-
-**Source of truth for questions:** `lib/coach/script.ts` exports `COACH_SCRIPT: ScriptStep[]`.
+**Total AI calls per session:** 2 (questions + plan).
 
 **Edge function modes:**
 - `mode: 'transcribe'` — Whisper, unchanged.
-- `mode: 'strategies'` — body `{ dream, answers, context }` → returns `kind: 'questions' (phase: strategy)` with strategy options, OR `kind: 'plan'` directly.
-- `mode: 'plan'` — body `{ dream, answers, chosenStrategy?, context }` → returns `kind: 'plan'`.
+- `mode: 'questions'` — body `{ dream, context }` → returns `{ message, steps[] }` using a separate `QUESTIONS_RESPONSE_SCHEMA`.
+- `mode: 'plan'` — body `{ dream, answers, context }` → returns `kind: 'plan'` using the existing `PLAN_RESPONSE_SCHEMA`.
 
 **System prompt key rules:**
-- The user profile arrives as a labeled block (`Dream`, `Why`, `When`, `Starting point`, `Prior attempts`, `Leverage`, `Hours per week`, `Time of day`, `Hard constraints`).
-- Strategies must be SPECIFIC and grounded in the profile — not generic ("Practice Spanish daily" is banned; "Daily 30-min Anki + 1 weekly tutor hour" is good).
-- Identity-goal short-circuit: model may skip strategies and return a plan directly when there's no real strategy choice to make.
+- Questions must be tailored to the dream (reading goal → reading-flavored questions, fitness → routine/injuries/access, business → skills/audience/hours).
+- Question count: 5–8.
+- WHY question is always present (motivation anchoring).
 - Plan rules unchanged from v2: project = strategy with deliverable; habits required for recurrence-shaped goals; today-sized tasks under one project; standalone tasks have `projectRef=""`.
-- Strict JSON schema unchanged.
 
-**Why-questions:** still preserved — the script's first question is always "Why does this matter to you?" and the answer is passed to the model in the profile block as `Why: "..."`. The model uses it to populate `goal.why`.
+**Why-questions:** still preserved — the model is required to include at least one WHY question in the generated step list. The user's answer becomes `goal.why` on the plan.
 
-**Prompt (verbatim):**
+**Discovered bugs fixed during v6.1 stabilization:**
+- `lib/simple-items/supabase-repo.ts` was missing the `projectId → project_id` column mapping; every `useTodosStore.addItem({ projectId })` was silently rejected by Postgres. Fixed.
+- The `goals_one_cornerstone_per_user` Postgres unique constraint can fail if the model sets `isCornerstone=true` while a cornerstone already exists. `applyPlan` now suppresses the flag in that case.
+- Coach-confirm error surfacing: `String({...supabaseError})` was returning `[object Object]`. `formatError()` now extracts `message` / `details` / `hint` / `code`.
 
-```ts
-const SYSTEM_PROMPT = `You are the user's personal "Scaling Tiny Steps" coach. The app has already collected the user's profile through a fixed discovery script. Your job is targeted: produce strategy options or a final plan from that profile. No more discovery questions.
-
-# Data model
-
-- Goal = direction. OUTCOME goal: real end-state with a targetDate. IDENTITY goal: ongoing practice / who you want to be (no targetDate).
-- Milestone = optional progress marker on a goal.
-- Project = a STRATEGY with a clear deliverable / end-state. Vague catch-alls ("immerse in X", "practice Y", "be consistent with Z", "learn Z") are NOT projects.
-- Habit = recurring practice. Mapping:
-  - "Every day" / "Daily X min" → frequencyKind="daily", daysOfWeek=[], timesPerPeriod=1.
-  - "On Mon/Wed/Fri" → frequencyKind="weekly", daysOfWeek=[1,3,5], timesPerPeriod=3.
-  - "3 times any day per week" → frequencyKind="weekly", daysOfWeek=[], timesPerPeriod=3.
-  daysOfWeek: 0=Sun..6=Sat.
-- Task = one-shot action that closes a loop on a project. Verb-first, doable today, <60 min. NEVER attach directly to a goal/milestone in new plans.
-
-# What you receive
-
-Each request includes:
-- "dream": the user's one-line dream.
-- "answers": a map of fixed-key discovery answers ("why", "when", "starting", "tried", "leverage", "hours", "time_of_day", "constraints").
-- "context": existing items the user already has.
-- For mode="plan": also "chosenStrategy" if a strategy was picked.
-
-# Modes
-
-You will be told which mode you are in (in the user message). Two modes:
-
-## STRATEGIES MODE
-
-Goal: present 2-4 concrete, situation-grounded strategy options for the user to pick from.
-
-Output kind="questions" with:
-- phase: "strategy"
-- message: ONE short warm acknowledgement (e.g. "Here are three paths grounded in what you've shared.")
-- questions: ["Which path resonates most?"]   (or similar single short question)
-- suggestions: 2-4 strategy options. Each MUST be specific and grounded in the answers (skill, hours, time-of-day, constraints). Examples:
-  - "Daily 30-min Anki + 1 weekly tutor hour" (good — concrete + matches stated availability)
-  - "Practice Spanish daily" (BAD — vague, generic)
-- goals/milestones/projects/todos/habits: empty arrays.
-
-EXCEPTION — short-circuit: if the dream is purely identity-shaped with no real strategy choice (e.g. "Be a daily journaler", "Stay in great shape"), you MAY skip strategies and return kind="plan" directly. In that case follow PLAN MODE rules below. The user has not been asked a strategy question, so you should only short-circuit when there genuinely is no meaningful choice to make.
-
-## PLAN MODE
-
-Goal: produce the final structured plan, grounded in the answers and (if present) the chosenStrategy.
-
-Output kind="plan" with phase: "ready":
-- ONE goal (or reuse from context). targetDate matches the user's "when" answer when possible. why = user's "why" answer.
-- 0-3 milestones (real progress markers, only if useful).
-- 0-3 projects. If chosenStrategy is present, the main project IS that strategy (titled tightly, with a deliverable). 3-5 today-sized tasks under it.
-- For IDENTITY goals: 0 projects unless the user named a sub-deliverable.
-- 0-3 habits. If the dream involves recurring practice (reading, training, writing, studying, exercising, language, meditation, journaling), include AT LEAST ONE habit with cadence aligned to the user's stated hours/time-of-day. (e.g. user said "Mornings, 5-10h, Day job" → "Practice 30 min on weekday mornings", not "Practice daily".)
-- todos: today-sized only. If a starter task doesn't belong to any project, set projectRef="" (the app handles standalone tasks). Do NOT invent fake projectRefs.
-- Test every project with: "Could I write 'Done' on this and have it stay done?" If no, it's a habit.
-- Test every habit with: "Is this a recurring schedule?" If no, it's a task.
-- DO NOT PAD. Empty arrays are correct.
-- "message": 1-2 warm sentences mentioning the chosen path or key habit.
-
-# General output rules
-
-- Schema requires every property. For fields you don't use, return "" (strings) or [].
-- For plan turns: set questions=[] and suggestions=[].
-- Titles: <60 chars, action-oriented, no trailing punctuation.
-- Never invent fields. Never output prose outside JSON.
-
-# Reusing existing items
-
-If "context" lists a goal/milestone/project that already matches the user's intent, set goalRef/milestoneRef/projectRef to its real id (not a tempId). New items keep tempIds like g1, m1, p1, t1, h1.
-
-# Examples
-
-STRATEGIES — input: dream "I want to make $100k/month as an indie hacker", hours "10-20h", time_of_day "Evenings", starting "Senior backend engineer (10y) in fintech ops", tried "Made some progress (2 side projects, <$100 MRR)", leverage "Relevant skills".
-Output: { kind: "questions", phase: "strategy", message: "Three paths that fit your fintech-ops leverage and 10-20h evenings.", questions: ["Which path resonates most?"], suggestions: ["Productize a fintech-ops automation as self-serve SaaS", "Hand-built consulting first, then SaaS-ify", "Audience-led: build fintech-ops content for 6 months, then launch"], goals: [], milestones: [], projects: [], todos: [], habits: [] }
-
-PLAN — input above + chosenStrategy "Productize a fintech-ops automation as self-serve SaaS".
-Output: { kind: "plan", phase: "ready", message: "Productize first. Three months to a paid pilot.", questions: [], suggestions: [], goals: [{ tempId: "g1", title: "Build a fintech-ops SaaS to $100k MRR", why: "Quit my day job and have real freedom", targetDate: "2029-04-30", isCornerstone: false }], milestones: [{ tempId: "m1", goalRef: "g1", title: "First paying customer", targetDate: "", reward: "" }], projects: [{ tempId: "p1", goalRef: "g1", milestoneRef: "m1", title: "Productize fintech-ops automation v1", body: "" }], todos: [{ tempId: "t1", projectRef: "p1", title: "Pick the single workflow to productize" }, { tempId: "t2", projectRef: "p1", title: "Sketch the v1 user flow on paper" }, { tempId: "t3", projectRef: "p1", title: "List 5 finance teams to pitch first" }], habits: [{ tempId: "h1", goalRef: "g1", title: "Ship 10h on the SaaS, evenings + Sat", frequencyKind: "weekly", daysOfWeek: [], timesPerPeriod: 4 }] }
-
-PLAN (identity, short-circuit) — input: dream "Be a daily journaler", time_of_day "Mornings".
-Output: { kind: "plan", phase: "ready", message: "Five quiet minutes every morning.", questions: [], suggestions: [], goals: [{ tempId: "g1", title: "Be a daily journaler", why: "", targetDate: "", isCornerstone: false }], milestones: [], projects: [], todos: [], habits: [{ tempId: "h1", goalRef: "g1", title: "Journal 5 min in the morning", frequencyKind: "daily", daysOfWeek: [], timesPerPeriod: 1 }] }`;
-```
-
-**Static script (`lib/coach/script.ts`):**
-
-```ts
-export type ScriptStep = {
-  id: string;
-  phase: CoachPhase;
-  question: string;
-  suggestions: string[];
-};
-
-export const COACH_SCRIPT: ScriptStep[] = [
-  // PHASE 1 — DREAM
-  { id: 'why',         phase: 'dream',         question: 'Why does this matter to you?',
-    suggestions: ['To prove I can to myself', 'To change my career or income', 'To support my family', "Other — I'll say it"] },
-  { id: 'when',        phase: 'dream',         question: 'When realistically do you want this?',
-    suggestions: ['~1 year', '~3 years', '5+ years', 'No fixed deadline'] },
-  // PHASE 2 — CURRENT STATE
-  { id: 'starting',    phase: 'current_state', question: "What's your starting point — your current level here?",
-    suggestions: ['Total beginner', 'Some experience', 'Solid basics', 'Already advanced'] },
-  { id: 'tried',       phase: 'current_state', question: 'Have you tried this before? What happened?',
-    suggestions: ['Never tried', 'Tried briefly, gave up', 'Made some progress', 'Succeeded partially'] },
-  { id: 'leverage',    phase: 'current_state', question: 'What can you leverage — audience, network, capital, prior work?',
-    suggestions: ['Nothing yet', 'Relevant skills', 'An audience or network', 'Capital'] },
-  // PHASE 3 — CONSTRAINTS
-  { id: 'hours',       phase: 'constraints',   question: 'Honestly, how many hours per week can you commit?',
-    suggestions: ['1–3h', '3–5h', '5–10h', '10–20h', '20+h'] },
-  { id: 'time_of_day', phase: 'constraints',   question: 'When in the day are you most productive?',
-    suggestions: ['Mornings', 'Evenings', 'Weekends', 'Whenever I can'] },
-  { id: 'constraints', phase: 'constraints',   question: 'Any hard constraints right now?',
-    suggestions: ['Day job', 'Family / caregiving', 'Tight finances', 'None major'] },
-];
-```
-
-**Profile renderer (the user message sent to the model):**
-
-```ts
-function renderProfile(payload: any): string {
-  const labels: Record<string, string> = {
-    why: 'Why', when: 'When', starting: 'Starting point', tried: 'Prior attempts',
-    leverage: 'Leverage', hours: 'Hours per week', time_of_day: 'Time of day',
-    constraints: 'Hard constraints',
-  };
-  const lines: string[] = [];
-  if (payload.dream) lines.push(`Dream: "${payload.dream}"`);
-  const answers = payload.answers ?? {};
-  for (const [k, label] of Object.entries(labels)) {
-    if (answers[k]) lines.push(`${label}: "${answers[k]}"`);
-  }
-  if (payload.chosenStrategy) lines.push(`Chosen strategy: "${payload.chosenStrategy}"`);
-  return lines.join('\n');
-}
-```
-
-**Strict JSON schema (unchanged from v4):** see `PLAN_RESPONSE_SCHEMA` in `index.ts`. Includes `kind`, `message`, `questions`, `suggestions`, `phase` (enum), `goals[]`, `milestones[]`, `projects[]`, `todos[]`, `habits[]`. All required, `additionalProperties: false`, `strict: true`.
+**Verbatim prompt:** see commit `1991fd3` — `git show 1991fd3:supabase/functions/coach/index.ts | sed -n '/^const SYSTEM_PROMPT/,/^`;/p'`.
 
 ---
 
-## Reverting
+## v7 — Two modes: Quick + Deep (CURRENT, in progress)
+
+**Driver:** v6.1 lacks the depth needed for big or fuzzy goals. Tapping through chips lets the user skip past the questions that matter (especially WHY). The original per-turn LLM dialog (v3–v5) had that depth — bringing it back as an opt-in mode while keeping v6.1 as the fast path.
+
+**The two modes (user picks after entering the dream):**
+
+- **Quick plan** — keeps the v6.1 flow exactly: AI generates 3–5 tailored questions with chips, user walks through, plan synthesized. ~2 AI calls.
+- **Deep coaching** — fixed flow: **5 question turns + 1 plan turn = 6 AI calls**. One question per turn. **No chips** — user must write or speak each answer. Model picks the 5 most useful questions for this dream; one of them MUST surface the WHY.
+
+**Architecture:**
+
+```
+Welcome → user states their dream
+         ↓
+ModePicker (tap one)
+   ├──── Quick → askQuestions → walk locally → askPlan → PlanPreview
+   └──── Deep  → askDiscover (turn 1) → answer
+                 askDiscover (turn 2) → answer
+                 ...
+                 askDiscover (turn 5) → answer
+                 askDiscover (turn 6, "Final plan") → kind="plan"
+                                                           ↓
+                                                      PlanPreview
+```
+
+**Edge function modes:**
+- `mode: 'transcribe'` — Whisper, unchanged.
+- `mode: 'questions'` — kept for Quick. `{ dream, context }` → `{ message, steps[] }`.
+- `mode: 'plan'` — kept. `{ dream, answers, context }` → `kind: 'plan'`.
+- `mode: 'discover'` — NEW. `{ dream, history, turn, context }` where `history: { question, answer }[]` and `turn: 1..6`. Returns `kind: 'questions'` (turns 1–5) or `kind: 'plan'` (turn 6).
+
+**Key Deep-mode prompt rules:**
+- `questions.length === 1`. Always one question per turn.
+- `suggestions: []`. Never chips.
+- The 5 question turns must include exactly one WHY question.
+- Pick the 5 most useful questions for THIS specific dream. Don't waste a turn.
+- The user message tells the model the turn number; on turn 6 it must return `kind: "plan"`.
+- `phase` field stays advisory for the progress bar label.
+
+**UI changes:**
+- New `ModePicker` stage between `welcome` and the rest, with two tappable cards.
+- Stage union extended with `discover`/`loading_discover`.
+- Wizard renders without chips when in Deep mode; placeholder reads "Take your time — speak or type".
+- Progress bar in Deep mode = `currentTurn / 6` (steps 1/5 .. 5/5 .. plan).
 
 - **Full revert** to a prior version: `git log -- supabase/functions/coach/index.ts` and `git show <sha>:supabase/functions/coach/index.ts > /tmp/coach.ts`.
 - **Just the prompt:** the entire `SYSTEM_PROMPT` template literal can be replaced; the rest of the file (modes, schema, fetch wiring) is independent.

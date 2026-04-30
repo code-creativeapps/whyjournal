@@ -7,6 +7,9 @@ import type {
   CoachAnswers,
   CoachContextItem,
   CoachPlanResponse,
+  CoachQuestionsResponse,
+  CoachResponse,
+  DiscoverTurn,
   GeneratedScript,
 } from './types';
 
@@ -77,6 +80,30 @@ export async function askPlan(args: {
   if (error) throw error;
   return data as CoachPlanResponse;
 }
+
+export async function askDiscover(args: {
+  dream: string;
+  history: DiscoverTurn[];
+  turn: number;
+  totalQuestionTurns: number;
+}): Promise<CoachResponse> {
+  const context = buildContextSnapshot();
+  const { data, error } = await supabase.functions.invoke('coach', {
+    body: {
+      mode: 'discover',
+      dream: args.dream,
+      history: args.history,
+      turn: args.turn,
+      totalQuestionTurns: args.totalQuestionTurns,
+      context,
+    },
+  });
+  if (error) throw error;
+  return data as CoachResponse;
+}
+
+// Re-export for convenience.
+export type { CoachQuestionsResponse, CoachResponse };
 
 export async function transcribeAudio(
   audioBase64: string,

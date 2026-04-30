@@ -5,6 +5,13 @@ export type CoachContextItem =
 
 export type CoachAnswers = Record<string, string>;
 
+/** A single Q+A pair recorded during a Deep-mode discovery flow. */
+export type DiscoverTurn = { question: string; answer: string };
+
+export type CoachMode = 'quick' | 'deep';
+
+export const DEEP_TOTAL_TURNS = 5;
+
 /** A discovery question generated upfront for a specific dream. */
 export type GeneratedStep = {
   id: string;

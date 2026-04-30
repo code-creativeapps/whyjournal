@@ -143,10 +143,11 @@ const QUESTIONS_RESPONSE_SCHEMA = {
   required: ['message', 'steps'],
 } as const;
 
-const SYSTEM_PROMPT = `You are the user's personal "Scaling Tiny Steps" coach. You operate in one of two modes per request, told to you in the user message:
+const SYSTEM_PROMPT = `You are the user's personal "Scaling Tiny Steps" coach. You operate in one of three modes per request, told to you in the user message:
 
-- MODE = QUESTIONS: given a fresh dream, generate a tailored discovery checklist (5–8 questions) that will let you build a precise plan after the user answers. The user walks through these locally; you will NOT be called again until they're done.
-- MODE = PLAN: given the dream + the user's answers + existing items, produce the final structured plan.
+- MODE = QUESTIONS (Quick plan): given a fresh dream, generate a tailored discovery checklist (3–5 questions) that will let you build a precise plan after the user answers. The user walks through these locally; you will NOT be called again until they're done.
+- MODE = DISCOVER (Deep coaching, turn-by-turn): the user is doing a deeper guided dialog. Exactly 5 question turns followed by a 6th plan turn. Each call gives you the dream, the answers so far, and the turn number. On turns 1–5 you return ONE next question (no chips). On turn 6 you return the final plan.
+- MODE = PLAN: given the dream + a structured answers map + existing items, produce the final structured plan.
 
 Each mode has a different output schema. Follow the schema for the mode you are in.
 
@@ -199,6 +200,28 @@ Output schema for QUESTIONS mode:
   ]
 }
 
+# DISCOVER MODE (Deep coaching, turn-by-turn)
+
+Input you receive: dream + history (array of {question, answer} pairs) + the current turn number + the total number of question turns (always 5) + existing items context.
+
+The flow is FIXED: 5 question turns, then 1 plan turn. You MUST output kind="plan" on the 6th call (when turn > totalQuestionTurns). You MUST output kind="questions" with exactly one question on turns 1–5.
+
+Output for turns 1–5 (kind="questions"):
+- "questions": ARRAY OF EXACTLY ONE element. The next question, ending in "?". <120 chars. NEVER more than one. NEVER empty.
+- "suggestions": EMPTY ARRAY []. Deep mode never uses chips. The user is meant to write or speak a thoughtful answer.
+- "message": ONE warm sentence acknowledging the previous answer (or, on turn 1, framing the conversation).
+- "phase": advisory; pick one of "dream"/"current_state"/"constraints"/"strategy"/"drill_in" that best fits.
+- All array fields (goals/milestones/projects/todos/habits): empty.
+
+Pick the 5 most useful questions for THIS specific dream. Don't waste a turn — every question must materially shape the plan.
+
+Coverage requirements across the 5 turns:
+- Exactly ONE WHY question — surface the user's underlying motivation. Examples: "Why does this matter to you?", "What changes in your life when you achieve it?". Non-negotiable.
+- Cover at least: motivation (WHY), specifics of the goal, current state, constraints, and a question that helps you choose the right strategy. Adapt the order to what the conversation reveals.
+- Don't repeat questions you already have answers to (read the history).
+
+On turn 6 (when you receive "Final plan"), output kind="plan" following PLAN MODE rules below, grounded in the dream + the 5 history answers.
+
 # PLAN MODE
 
 Input you receive: dream + the user's answers (a map keyed by step ids you defined in QUESTIONS mode) + existing-items context.
@@ -247,18 +270,37 @@ function renderProfile(payload: any): string {
   return lines.join('\n');
 }
 
-async function callModel(mode: 'questions' | 'plan', payload: any): Promise<any> {
+function renderDiscoverHistory(history: any[]): string {
+  if (!history?.length) return '(no answers yet — this is turn 1)';
+  return history
+    .map((h, i) => `Q${i + 1}: ${h.question}\nA${i + 1}: ${h.answer}`)
+    .join('\n\n');
+}
+
+async function callModel(mode: 'questions' | 'discover' | 'plan', payload: any): Promise<any> {
   const context = payload.context ?? [];
   const contextSummary = context.length === 0 ? 'No existing items.' : JSON.stringify(context);
-  const profile = renderProfile(payload);
 
-  const userMsg =
-    mode === 'questions'
-      ? `MODE: QUESTIONS\n\nDream: "${payload.dream ?? ''}"\n\n# Existing items\n${contextSummary}\n\nGenerate the discovery checklist (5–8 tailored questions) for this dream now.`
-      : `MODE: PLAN\n\n# User profile\n${profile}\n\n# Existing items\n${contextSummary}\n\nProduce the final plan grounded in this profile.`;
+  let userMsg: string;
+  if (mode === 'questions') {
+    userMsg = `MODE: QUESTIONS\n\nDream: "${payload.dream ?? ''}"\n\n# Existing items\n${contextSummary}\n\nGenerate the discovery checklist (3–5 tailored questions) for this dream now.`;
+  } else if (mode === 'discover') {
+    const turn = payload.turn ?? 1;
+    const total = payload.totalQuestionTurns ?? 5;
+    const history = renderDiscoverHistory(payload.history ?? []);
+    if (turn > total) {
+      userMsg = `MODE: DISCOVER\nDream: "${payload.dream ?? ''}"\n\n# Answers so far\n${history}\n\n# Existing items\n${contextSummary}\n\nFinal plan. Output kind="plan" now, grounded in the ${total} answers above.`;
+    } else {
+      userMsg = `MODE: DISCOVER\nDream: "${payload.dream ?? ''}"\nTurn ${turn} of ${total}.\n\n# Answers so far\n${history}\n\n# Existing items\n${contextSummary}\n\nReturn the next single question (kind="questions", suggestions=[]).`;
+    }
+  } else {
+    const profile = renderProfile(payload);
+    userMsg = `MODE: PLAN\n\n# User profile\n${profile}\n\n# Existing items\n${contextSummary}\n\nProduce the final plan grounded in this profile.`;
+  }
 
   const schema = mode === 'questions' ? QUESTIONS_RESPONSE_SCHEMA : PLAN_RESPONSE_SCHEMA;
-  const schemaName = mode === 'questions' ? 'CoachQuestions' : 'CoachPlan';
+  const schemaName =
+    mode === 'questions' ? 'CoachQuestions' : mode === 'discover' ? 'CoachDiscover' : 'CoachPlan';
 
   const body = {
     model: MODEL,
@@ -307,7 +349,11 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    if (payload.mode === 'questions' || payload.mode === 'plan') {
+    if (
+      payload.mode === 'questions' ||
+      payload.mode === 'discover' ||
+      payload.mode === 'plan'
+    ) {
       const result = await callModel(payload.mode, payload);
       return new Response(JSON.stringify(result), {
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
