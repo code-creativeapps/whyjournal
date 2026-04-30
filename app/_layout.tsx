@@ -94,6 +94,14 @@ export default function RootLayout() {
             <Stack.Screen name="project" options={{ presentation: 'modal' }} />
             <Stack.Screen name="search" options={{ presentation: 'modal' }} />
             <Stack.Screen
+              name="coach"
+              options={{
+                headerShown: true,
+                title: 'Coach',
+                presentation: 'modal',
+              }}
+            />
+            <Stack.Screen
               name="project-detail"
               options={{
                 headerShown: true,

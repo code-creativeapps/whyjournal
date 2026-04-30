@@ -4,7 +4,7 @@ import * as React from 'react';
 import { SectionList, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Fab } from '@/components/fab';
+import { FabRow } from '@/components/fab-row';
 import { SimpleItemRow } from '@/components/simple-item-row';
 import { SwipeableRow } from '@/components/swipeable-row';
 import { SwipeableScreen } from '@/components/swipeable-screen';
@@ -170,7 +170,7 @@ export default function TodosScreen() {
             contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
           />
         )}
-        <Fab href={{ pathname: '/simple-item', params: { kind: 'todo' } }} />
+        <FabRow href={{ pathname: '/simple-item', params: { kind: 'todo' } }} />
       </View>
     </SwipeableScreen>
   );

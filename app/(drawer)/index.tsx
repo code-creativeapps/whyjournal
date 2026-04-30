@@ -5,7 +5,7 @@ import ConfettiCannon from 'react-native-confetti-cannon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EntryRow } from '@/components/entry-row';
-import { Fab } from '@/components/fab';
+import { FabRow } from '@/components/fab-row';
 import { SwipeableRow } from '@/components/swipeable-row';
 import { SwipeableScreen } from '@/components/swipeable-screen';
 import { Text } from '@/components/ui/text';
@@ -65,7 +65,7 @@ export default function JournalScreen() {
           />
         </>
       )}
-      <Fab href="/new" />
+      <FabRow href="/new" />
       <View pointerEvents="none" className="absolute inset-0">
         <ConfettiCannon
           ref={cannon}

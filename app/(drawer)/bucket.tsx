@@ -3,7 +3,7 @@ import { StarIcon } from 'lucide-react-native';
 import { FlatList, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Fab } from '@/components/fab';
+import { FabRow } from '@/components/fab-row';
 import { SimpleItemRow } from '@/components/simple-item-row';
 import { SwipeableRow } from '@/components/swipeable-row';
 import { SwipeableScreen } from '@/components/swipeable-screen';
@@ -61,7 +61,7 @@ export default function BucketScreen() {
             contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
           />
         )}
-        <Fab href={{ pathname: '/simple-item', params: { kind: 'bucket' } }} />
+        <FabRow href={{ pathname: '/simple-item', params: { kind: 'bucket' } }} />
       </View>
     </SwipeableScreen>
   );

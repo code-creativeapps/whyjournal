@@ -25,9 +25,16 @@ type Props = {
   thickness?: number;
   /** Full rotation period in ms. */
   durationMs?: number;
+  /** Optional gradient colors. Must include at least 2 stops; loop the first color at the end for a seamless loop. */
+  colors?: readonly string[];
 };
 
-export function AnimatedBorder({ children, thickness = 3, durationMs = 4000 }: Props) {
+export function AnimatedBorder({
+  children,
+  thickness = 3,
+  durationMs = 4000,
+  colors = RAINBOW,
+}: Props) {
   const rotation = useSharedValue(0);
 
   React.useEffect(() => {
@@ -63,7 +70,7 @@ export function AnimatedBorder({ children, thickness = 3, durationMs = 4000 }: P
           animatedStyle,
         ]}>
         <LinearGradient
-          colors={RAINBOW as unknown as readonly [string, string, ...string[]]}
+          colors={colors as unknown as readonly [string, string, ...string[]]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ flex: 1 }}

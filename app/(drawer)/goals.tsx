@@ -20,7 +20,7 @@ import * as React from 'react';
 import { FlatList, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Fab } from '@/components/fab';
+import { FabRow } from '@/components/fab-row';
 import { SearchHeaderButton } from '@/components/search-header-button';
 import { SwipeableRow } from '@/components/swipeable-row';
 import { SwipeableScreen } from '@/components/swipeable-screen';
@@ -239,7 +239,7 @@ export default function GoalsScreen() {
             />
           )}
         </View>
-        <Fab href="/goal" />
+        <FabRow href="/goal" />
       </View>
     </SwipeableScreen>
   );

@@ -4,6 +4,7 @@ import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimatedBorder } from '@/components/animated-border';
+import { CoachLauncher } from '@/components/coach-launcher';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 
@@ -16,7 +17,7 @@ const SHADOW = {
   borderRadius: 9999,
 };
 
-export function Fab({ href }: { href: Parameters<typeof Link>[0]['href'] }) {
+export function FabRow({ href }: { href: Parameters<typeof Link>[0]['href'] }) {
   const insets = useSafeAreaInsets();
   return (
     <View
@@ -26,8 +27,12 @@ export function Fab({ href }: { href: Parameters<typeof Link>[0]['href'] }) {
         left: 0,
         right: 0,
         bottom: insets.bottom + 16,
+        flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
+        gap: 14,
       }}>
+      <CoachLauncher />
       <View style={SHADOW}>
         <AnimatedBorder thickness={2}>
           <Link href={href} asChild>

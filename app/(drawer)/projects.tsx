@@ -2,7 +2,7 @@ import * as React from 'react';
 import { FlatList, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Fab } from '@/components/fab';
+import { FabRow } from '@/components/fab-row';
 import { ProjectRow } from '@/components/project-row';
 import { SwipeableScreen } from '@/components/swipeable-screen';
 import { Text } from '@/components/ui/text';
@@ -104,7 +104,7 @@ export default function ProjectsScreen() {
             contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
           />
         )}
-        <Fab href="/project" />
+        <FabRow href="/project" />
       </View>
     </SwipeableScreen>
   );

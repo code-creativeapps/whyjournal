@@ -40,3 +40,10 @@ yarn-error.*
 
 expo-env.d.ts
 # @end expo-cli
+
+# Prebuild-generated native projects (regenerate with `npx expo prebuild`)
+ios/
+android/
+
+# Supabase CLI link state
+supabase/.temp/
