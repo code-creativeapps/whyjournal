@@ -111,11 +111,23 @@ export default function RootLayout() {
             />
             <Stack.Screen
               name="milestone-detail"
-              options={{ headerShown: true, title: 'Milestone', presentation: 'formSheet' }}
+              options={{
+                headerShown: true,
+                title: 'Milestone',
+                presentation: 'formSheet',
+                contentStyle: { flex: 1 },
+                sheetAllowedDetents: 'fitToContents',
+              }}
             />
             <Stack.Screen
               name="bucket-detail"
-              options={{ headerShown: true, title: 'Bucket item', presentation: 'formSheet' }}
+              options={{
+                headerShown: true,
+                title: 'Bucket item',
+                presentation: 'formSheet',
+                contentStyle: { flex: 1 },
+                sheetAllowedDetents: 'fitToContents',
+              }}
             />
             <Stack.Screen
               name="entry-detail"
