@@ -10,6 +10,7 @@ import { SwipeableRow } from '@/components/swipeable-row';
 import { SwipeableScreen } from '@/components/swipeable-screen';
 import { Text } from '@/components/ui/text';
 import { celebrateTodoCheck } from '@/lib/celebrate';
+import { GoalIcon } from '@/lib/goals/icon';
 import { useGoalsStore } from '@/lib/stores/goals';
 import { useMilestonesStore } from '@/lib/stores/milestones';
 import { useTodosStore } from '@/lib/stores/todos';
@@ -70,22 +71,29 @@ export default function TodosScreen() {
   const sections = React.useMemo(() => buildSections(items), [items]);
   const todayKey = React.useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
 
-  function parentLabel(todo: Todo): string | undefined {
+  function parentDisplay(
+    todo: Todo
+  ): { icon: string | undefined; name: string } | undefined {
     if (todo.milestoneId) {
       const m = milestones.find((x) => x.id === todo.milestoneId);
-      if (m) return `Milestone: ${m.title}`;
+      if (m) {
+        // Milestones inherit their parent goal's icon — they don't carry one
+        // of their own.
+        const parentGoal = goals.find((x) => x.id === m.goalId);
+        return { icon: parentGoal?.icon, name: m.title };
+      }
     }
     if (todo.goalId) {
       const g = goals.find((x) => x.id === todo.goalId);
-      if (g) return `Goal: ${g.title}`;
+      if (g) return { icon: g.icon, name: g.title };
     }
     return undefined;
   }
 
   function combinedSubtitle(todo: Todo): string | undefined {
     const due = dueSubtitle(todo, todayKey);
-    const parent = parentLabel(todo);
-    return [due, parent].filter(Boolean).join(' · ') || undefined;
+    const parent = parentDisplay(todo);
+    return [due, parent?.name].filter(Boolean).join(' · ') || undefined;
   }
 
   return (
@@ -118,8 +126,16 @@ export default function TodosScreen() {
                 <SimpleItemRow
                   kind="checkbox"
                   title={item.title}
-                  body={item.body}
                   subtitle={combinedSubtitle(item)}
+                  subtitleLeading={
+                    parentDisplay(item) ? (
+                      <GoalIcon
+                        icon={parentDisplay(item)?.icon}
+                        size={12}
+                        className="text-red-500"
+                      />
+                    ) : null
+                  }
                   done={item.done}
                   onToggle={() => {
                     if (!item.done) celebrateTodoCheck();

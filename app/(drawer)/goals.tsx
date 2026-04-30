@@ -1,12 +1,18 @@
 import { useNavigation } from '@react-navigation/native';
 import { router } from 'expo-router';
+import DraggableFlatList, {
+  ScaleDecorator,
+  type RenderItemParams,
+} from 'react-native-draggable-flatlist';
 import {
+  ArrowUpDownIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
   CornerDownRightIcon,
   CrownIcon,
+  GripVerticalIcon,
   TargetIcon,
 } from 'lucide-react-native';
 import * as React from 'react';
@@ -30,13 +36,58 @@ import { cn } from '@/lib/utils';
 type Tab = 'goals' | 'milestones';
 
 export default function GoalsScreen() {
-  const items = useGoalsStore((state) => state.items);
+  const rawItems = useGoalsStore((state) => state.items);
   const hydrated = useGoalsStore((state) => state.hydrated);
   const deleteGoal = useGoalsStore((state) => state.deleteItem);
+  const updateGoal = useGoalsStore((state) => state.updateItem);
   const milestones = useMilestonesStore((state) => state.items);
   const insets = useSafeAreaInsets();
 
+  // User-controlled order: goals.position asc, then newest first as a
+  // tiebreaker so newly-created goals (default position 0) land at the
+  // top of their bucket until the user reorders.
+  const items = React.useMemo(
+    () =>
+      rawItems
+        .slice()
+        .sort(
+          (a, b) =>
+            (a.position ?? 0) - (b.position ?? 0) ||
+            b.createdAt.localeCompare(a.createdAt)
+        ),
+    [rawItems]
+  );
+
+  // Optimistic local copy of `items` so DraggableFlatList doesn't flicker
+  // while the N sequential `position` updates resolve. We snap it on drop and
+  // re-sync whenever `items` (the sorted upstream) actually changes.
+  const [localGoals, setLocalGoals] = React.useState<Goal[]>(items);
+  React.useEffect(() => {
+    setLocalGoals(items);
+  }, [items]);
+
+  const handleReorder = React.useCallback(
+    async (next: Goal[]) => {
+      setLocalGoals(next);
+      const updates: Array<Promise<unknown>> = [];
+      for (let i = 0; i < next.length; i++) {
+        const g = next[i];
+        if ((g.position ?? 0) !== i) {
+          updates.push(updateGoal(g.id, { position: i }));
+        }
+      }
+      try {
+        await Promise.all(updates);
+      } catch {
+        // Roll back to the upstream order if any update failed.
+        setLocalGoals(items);
+      }
+    },
+    [updateGoal, items]
+  );
+
   const [tab, setTab] = React.useState<Tab>('goals');
+  const [reorderMode, setReorderMode] = React.useState(false);
   // Per-goal expand state lifted to the screen so it survives tab switches.
   const [expanded, setExpanded] = React.useState<Set<string>>(() => new Set());
   const toggleExpanded = React.useCallback((id: string) => {
@@ -47,6 +98,12 @@ export default function GoalsScreen() {
       return next;
     });
   }, []);
+
+  // Drop expanded groups when entering reorder mode — the simpler list keeps
+  // the drag visually clean and there's no need to expand mid-reorder.
+  React.useEffect(() => {
+    if (reorderMode) setExpanded(new Set());
+  }, [reorderMode]);
 
   const milestonesByGoal = React.useMemo(() => {
     const map = new Map<string, Milestone[]>();
@@ -103,11 +160,27 @@ export default function GoalsScreen() {
   // drawer-level default (in (drawer)/_layout.tsx) only shows search.
   const navigation = useNavigation();
   const showToggle = tab === 'goals' && goalsWithMilestones.length > 0;
+  const showReorder = tab === 'goals' && items.length > 1;
   React.useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
         <View className="flex-row items-center gap-1 pr-1">
-          {showToggle ? (
+          {showReorder ? (
+            <Pressable
+              onPress={() => setReorderMode((v) => !v)}
+              hitSlop={8}
+              className={cn(
+                'size-9 items-center justify-center rounded-full',
+                reorderMode ? 'bg-accent' : 'active:bg-accent'
+              )}>
+              <Icon
+                as={ArrowUpDownIcon}
+                size={20}
+                className={reorderMode ? 'text-primary' : 'text-foreground'}
+              />
+            </Pressable>
+          ) : null}
+          {showToggle && !reorderMode ? (
             <Pressable
               onPress={onToggleAll}
               hitSlop={8}
@@ -123,7 +196,7 @@ export default function GoalsScreen() {
         </View>
       ),
     });
-  }, [navigation, showToggle, anyExpanded, onToggleAll]);
+  }, [navigation, showToggle, showReorder, reorderMode, anyExpanded, onToggleAll]);
 
   return (
     <SwipeableScreen route="goals">
@@ -131,15 +204,32 @@ export default function GoalsScreen() {
         <SegmentedTab value={tab} onChange={setTab} />
         <View key={tab} className="flex-1">
           {tab === 'goals' ? (
-            <GoalsList
-              goals={items}
-              hydrated={hydrated}
-              milestonesByGoal={milestonesByGoal}
-              expanded={expanded}
-              onToggleExpand={toggleExpanded}
-              onDeleteGoal={(id) => deleteGoal(id)}
-              paddingBottom={insets.bottom + 96}
-            />
+            <>
+              {reorderMode ? (
+                <View className="mt-3 flex-row items-center justify-between border-y border-border bg-muted px-4 py-2">
+                  <Text variant="muted" className="text-xs">
+                    Drag the handles to reorder.
+                  </Text>
+                  <Pressable
+                    onPress={() => setReorderMode(false)}
+                    hitSlop={8}
+                    className="rounded-full px-2 py-1 active:bg-accent">
+                    <Text className="text-sm font-semibold text-primary">Done</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+              <GoalsList
+                goals={localGoals}
+                hydrated={hydrated}
+                milestonesByGoal={milestonesByGoal}
+                expanded={expanded}
+                onToggleExpand={toggleExpanded}
+                onDeleteGoal={(id) => deleteGoal(id)}
+                onReorder={handleReorder}
+                reorderMode={reorderMode}
+                paddingBottom={insets.bottom + 96}
+              />
+            </>
           ) : (
             <MilestonesList
               milestones={sortedMilestones}
@@ -188,6 +278,8 @@ function GoalsList({
   expanded,
   onToggleExpand,
   onDeleteGoal,
+  onReorder,
+  reorderMode,
   paddingBottom,
 }: {
   goals: Goal[];
@@ -196,6 +288,8 @@ function GoalsList({
   expanded: Set<string>;
   onToggleExpand: (id: string) => void;
   onDeleteGoal: (id: string) => void;
+  onReorder: (next: Goal[]) => void;
+  reorderMode: boolean;
   paddingBottom: number;
 }) {
   if (hydrated && goals.length === 0) {
@@ -210,27 +304,66 @@ function GoalsList({
       </View>
     );
   }
+
+  const renderItem = ({ item, drag, isActive, getIndex }: RenderItemParams<Goal>) => (
+    <ScaleDecorator>
+      <View>
+        {!isActive && (getIndex() ?? 0) > 0 ? <View className="h-px bg-border" /> : null}
+        {reorderMode ? (
+          <View
+            className={cn(
+              'flex-row items-center bg-background',
+              isActive && 'bg-accent'
+            )}>
+            <View className="flex-1">
+              <GoalListItem
+                goal={item}
+                milestones={milestonesByGoal.get(item.id) ?? []}
+                expanded={false}
+                onToggleExpand={() => undefined}
+                isCornerstone={Boolean(item.isCornerstone)}
+                reorderMode
+              />
+            </View>
+            <Pressable
+              onLongPress={drag}
+              delayLongPress={120}
+              hitSlop={8}
+              className="px-3 py-3">
+              <Icon
+                as={GripVerticalIcon}
+                size={20}
+                className="text-muted-foreground"
+              />
+            </Pressable>
+          </View>
+        ) : (
+          <SwipeableRow
+            onEdit={() => router.push({ pathname: '/goal', params: { id: item.id } })}
+            onDelete={() => onDeleteGoal(item.id)}
+            deleteConfirmTitle="Delete goal"
+            deleteConfirmBody="Linked milestones will be removed too. This cannot be undone.">
+            <GoalListItem
+              goal={item}
+              milestones={milestonesByGoal.get(item.id) ?? []}
+              expanded={expanded.has(item.id)}
+              onToggleExpand={() => onToggleExpand(item.id)}
+              isCornerstone={Boolean(item.isCornerstone)}
+            />
+          </SwipeableRow>
+        )}
+      </View>
+    </ScaleDecorator>
+  );
+
   return (
-    <FlatList
+    <DraggableFlatList
       data={goals}
       keyExtractor={(item) => item.id}
-      renderItem={({ item, index }) => (
-        <SwipeableRow
-          onEdit={() => router.push({ pathname: '/goal', params: { id: item.id } })}
-          onDelete={() => onDeleteGoal(item.id)}
-          deleteConfirmTitle="Delete goal"
-          deleteConfirmBody="Linked milestones will be removed too. This cannot be undone.">
-          <GoalListItem
-            goal={item}
-            milestones={milestonesByGoal.get(item.id) ?? []}
-            expanded={expanded.has(item.id)}
-            onToggleExpand={() => onToggleExpand(item.id)}
-            isCornerstone={Boolean(item.isCornerstone)}
-          />
-        </SwipeableRow>
-      )}
-      ItemSeparatorComponent={() => <View className="h-px bg-border" />}
+      onDragEnd={({ data }) => onReorder(data)}
+      renderItem={renderItem}
       contentContainerStyle={{ paddingBottom }}
+      activationDistance={12}
     />
   );
 }
@@ -241,12 +374,14 @@ function GoalListItem({
   expanded,
   onToggleExpand,
   isCornerstone,
+  reorderMode,
 }: {
   goal: Goal;
   milestones: Milestone[];
   expanded: boolean;
   onToggleExpand: () => void;
   isCornerstone?: boolean;
+  reorderMode?: boolean;
 }) {
   const hasMilestones = milestones.length > 0;
   const progress = goalProgress(goal, milestones);
@@ -259,6 +394,43 @@ function GoalListItem({
   }
   const subtitle = subtitleParts.join(' · ') || undefined;
 
+  // While reordering, the row is a draggable token — no nav, no chevron, no
+  // expanded sub-rows. The grip handle on the right (rendered by the parent)
+  // is the only interactive surface.
+  const RowBody = (
+    <View className="flex-row items-center gap-3 px-4 py-2">
+      <View>
+        <GoalIconCircle icon={goal.icon} done={goal.done} size="sm" />
+        {isCornerstone ? (
+          <View
+            pointerEvents="none"
+            className="absolute -right-1.5 -top-1.5">
+            <Icon as={CrownIcon} size={12} className="text-amber-500" />
+          </View>
+        ) : null}
+      </View>
+      <View className="flex-1">
+        <Text
+          className={cn(
+            'text-base',
+            goal.done && 'text-muted-foreground line-through'
+          )}
+          numberOfLines={1}>
+          {goal.title}
+        </Text>
+        {subtitle ? (
+          <Text variant="muted" className="text-xs">
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+
+  if (reorderMode) {
+    return RowBody;
+  }
+
   return (
     <View>
       <View className="flex-row items-center">
@@ -267,33 +439,7 @@ function GoalListItem({
             router.push({ pathname: '/goal-detail', params: { id: goal.id } })
           }
           className="flex-1">
-          <View className="flex-row items-center gap-3 px-4 py-2">
-            <View>
-              <GoalIconCircle icon={goal.icon} done={goal.done} size="sm" />
-              {isCornerstone ? (
-                <View
-                  pointerEvents="none"
-                  className="absolute -right-1.5 -top-1.5">
-                  <Icon as={CrownIcon} size={12} className="text-amber-500" />
-                </View>
-              ) : null}
-            </View>
-            <View className="flex-1">
-              <Text
-                className={cn(
-                  'text-base',
-                  goal.done && 'text-muted-foreground line-through'
-                )}
-                numberOfLines={1}>
-                {goal.title}
-              </Text>
-              {subtitle ? (
-                <Text variant="muted" className="text-xs">
-                  {subtitle}
-                </Text>
-              ) : null}
-            </View>
-          </View>
+          {RowBody}
         </Pressable>
         {/* Chevron sits in its own touch zone — only this region toggles expansion.
             Hidden when there are no milestones to expand. No press feedback —

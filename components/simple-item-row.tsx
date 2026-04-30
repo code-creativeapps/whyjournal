@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react-native';
 import { CheckIcon } from 'lucide-react-native';
+import * as React from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
@@ -11,6 +12,7 @@ type CommonProps = {
   title: string;
   body?: string;
   subtitle?: string;
+  subtitleLeading?: React.ReactNode;
   onPress?: () => void;
 };
 
@@ -31,7 +33,7 @@ type WithIconProps = CommonProps & {
 export type SimpleItemRowProps = WithCheckProps | WithIconProps;
 
 export function SimpleItemRow(props: SimpleItemRowProps) {
-  const { title, body, subtitle, onPress } = props;
+  const { title, body, subtitle, subtitleLeading, onPress } = props;
   const isDone =
     (props.kind === 'checkbox' && props.done) ||
     (props.kind === 'icon' && props.done === true);
@@ -71,10 +73,15 @@ export function SimpleItemRow(props: SimpleItemRowProps) {
               numberOfLines={1}>
               {title}
             </Text>
-            {subtitle ? (
-              <Text variant="muted" className="text-xs">
-                {subtitle}
-              </Text>
+            {subtitle || subtitleLeading ? (
+              <View className="flex-row items-center gap-1">
+                {subtitleLeading}
+                {subtitle ? (
+                  <Text variant="muted" className="text-xs">
+                    {subtitle}
+                  </Text>
+                ) : null}
+              </View>
             ) : null}
             {body ? (
               <Text variant="muted" numberOfLines={1}>

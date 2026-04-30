@@ -123,13 +123,16 @@ export default function GoalFormScreen() {
     if (!canSave) return;
     setSaving(true);
     try {
+      // `icon: null` clears the column to NULL on the server. We can't pass
+      // `undefined` here because the supabase repo's toRow strips undefined
+      // keys, so the previous value would stick.
       const goalPayload: Partial<Goal> = {
         title: title.trim(),
         body: body.trim() || undefined,
         why: why.trim() || undefined,
         reward: reward.trim() || undefined,
         targetDate: targetDate.trim() || undefined,
-        icon: icon ?? undefined,
+        icon: (icon ?? null) as string | undefined,
         done: existing?.done ?? false,
       };
 

@@ -58,6 +58,7 @@ create table if not exists public.goals (
   target_date text,
   icon text,
   is_cornerstone boolean not null default false,
+  position int not null default 0,
   done boolean not null default false,
   completed_at timestamptz,
   created_at timestamptz not null default now()
@@ -226,6 +227,7 @@ alter table public.goals add column if not exists reward text;
 alter table public.goals add column if not exists body text;
 alter table public.goals add column if not exists icon text;
 alter table public.goals add column if not exists is_cornerstone boolean not null default false;
+alter table public.goals add column if not exists position int not null default 0;
 create unique index if not exists goals_one_cornerstone_per_user
   on public.goals (user_id) where is_cornerstone;
 alter table public.todos add column if not exists due_at date;

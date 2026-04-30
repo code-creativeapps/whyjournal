@@ -91,7 +91,11 @@ export default function RootLayout() {
             <Stack.Screen name="search" options={{ presentation: 'modal' }} />
             <Stack.Screen
               name="goal-detail"
-              options={{ headerShown: true, title: 'Goal' }}
+              options={{
+                headerShown: true,
+                title: 'Goal',
+                headerBackTitle: 'Goals',
+              }}
             />
             <Stack.Screen
               name="milestone-detail"

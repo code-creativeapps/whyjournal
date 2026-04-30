@@ -8,6 +8,7 @@ export type Goal = BaseItem & {
   reward?: string;
   icon?: string;
   isCornerstone?: boolean;
+  position?: number;
 };
 
 // Internal editor-only type used by the milestones UI inside the goal form.
