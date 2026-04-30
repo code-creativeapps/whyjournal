@@ -4,6 +4,7 @@ import { Stack, router, useLocalSearchParams } from 'expo-router';
 import {
   CalendarIcon,
   CheckIcon,
+  LayersIcon,
   LinkIcon,
   TargetIcon,
   Trash2Icon,
@@ -31,6 +32,7 @@ import { useAffirmationsStore } from '@/lib/stores/affirmations';
 import { useBucketStore } from '@/lib/stores/bucket';
 import { useGoalsStore } from '@/lib/stores/goals';
 import { useMilestonesStore } from '@/lib/stores/milestones';
+import { useProjectsStore } from '@/lib/stores/projects';
 import { useTodosStore } from '@/lib/stores/todos';
 import { useTrophiesStore } from '@/lib/stores/trophies';
 import { cn } from '@/lib/utils';
@@ -84,7 +86,11 @@ function getStoreApi(kind: Kind) {
 }
 
 export default function SimpleItemFormScreen() {
-  const { kind: kindParam, id } = useLocalSearchParams<{ kind?: string; id?: string }>();
+  const { kind: kindParam, id, projectId: prefillProjectId } = useLocalSearchParams<{
+    kind?: string;
+    id?: string;
+    projectId?: string;
+  }>();
   const kind = (kindParam ?? 'todo') as Kind;
   const config = CONFIG[kind];
   const isEditing = Boolean(id);
@@ -99,6 +105,7 @@ export default function SimpleItemFormScreen() {
           dueAt?: string;
           goalId?: string;
           milestoneId?: string;
+          projectId?: string;
         })
       | null;
   });
@@ -114,12 +121,16 @@ export default function SimpleItemFormScreen() {
   const [pickerVisible, setPickerVisible] = React.useState(false);
   // Working copy used inside the picker; committed to `dueAt` only when Done is tapped.
   const [pickerDate, setPickerDate] = React.useState<Date>(() => new Date());
-  // Parent (goal or milestone) — only used when kind === 'todo'.
+  // Parent (project, goal, or milestone) — only used when kind === 'todo'.
+  // New tasks should pick a project; goal/milestone parents survive for legacy
+  // rows created before projects existed.
   const [parent, setParent] = React.useState<
-    { kind: 'goal' | 'milestone'; id: string } | null
+    { kind: 'project' | 'goal' | 'milestone'; id: string } | null
   >(() => {
+    if (initial?.projectId) return { kind: 'project', id: initial.projectId };
     if (initial?.milestoneId) return { kind: 'milestone', id: initial.milestoneId };
     if (initial?.goalId) return { kind: 'goal', id: initial.goalId };
+    if (prefillProjectId) return { kind: 'project', id: prefillProjectId };
     return null;
   });
   const [parentPickerVisible, setParentPickerVisible] = React.useState(false);
@@ -148,13 +159,16 @@ export default function SimpleItemFormScreen() {
       payload.done = initial && 'done' in initial ? (initial as { done?: boolean }).done ?? false : false;
     }
     if (kind === 'todo') {
-      // Always set both keys — the unset one is `undefined` so the repo's toRow
-      // skips it on insert and the SQL CHECK constraint stays satisfied.
+      // Insert path: only set the chosen parent key; the others stay
+      // undefined so the repo's toRow skips them and the SQL CHECK is happy.
+      payload.projectId = parent?.kind === 'project' ? parent.id : undefined;
       payload.goalId = parent?.kind === 'goal' ? parent.id : undefined;
       payload.milestoneId = parent?.kind === 'milestone' ? parent.id : undefined;
-      // On update, send `null` (not undefined) so the column is cleared if the
-      // user removed the parent. Supabase treats undefined as "skip".
+      // Update path: send `null` for the unselected ones so the columns are
+      // cleared if the user switched parents. Supabase treats undefined as
+      // "skip", which would leave the previous value in place.
       if (isEditing) {
+        payload.projectId = parent?.kind === 'project' ? parent.id : null;
         payload.goalId = parent?.kind === 'goal' ? parent.id : null;
         payload.milestoneId = parent?.kind === 'milestone' ? parent.id : null;
       }
@@ -340,7 +354,9 @@ export default function SimpleItemFormScreen() {
   );
 }
 
-type ParentSelection = { kind: 'goal' | 'milestone'; id: string } | null;
+type ParentSelection =
+  | { kind: 'project' | 'goal' | 'milestone'; id: string }
+  | null;
 
 function ParentPickerRow({
   parent,
@@ -353,10 +369,17 @@ function ParentPickerRow({
 }) {
   const goals = useGoalsStore((s) => s.items);
   const milestones = useMilestonesStore((s) => s.items);
+  const projects = useProjectsStore((s) => s.items);
 
-  let label = 'Attach to a goal or milestone';
+  let label = 'Attach to a project';
   let prefix: string | null = null;
-  if (parent?.kind === 'goal') {
+  if (parent?.kind === 'project') {
+    const p = projects.find((x) => x.id === parent.id);
+    if (p) {
+      prefix = 'Project';
+      label = p.title;
+    }
+  } else if (parent?.kind === 'goal') {
     const g = goals.find((x) => x.id === parent.id);
     if (g) {
       prefix = 'Goal';
@@ -411,6 +434,7 @@ function ParentPickerModal({
 }) {
   const goals = useGoalsStore((s) => s.items);
   const milestones = useMilestonesStore((s) => s.items);
+  const projects = useProjectsStore((s) => s.items);
 
   const milestonesByGoal = React.useMemo(() => {
     const map = new Map<string, typeof milestones>();
@@ -428,6 +452,23 @@ function ParentPickerModal({
     }
     return map;
   }, [milestones]);
+
+  const projectsByGoal = React.useMemo(() => {
+    const map = new Map<string, typeof projects>();
+    for (const p of projects) {
+      const list = map.get(p.goalId) ?? [];
+      list.push(p);
+      map.set(p.goalId, list);
+    }
+    for (const list of map.values()) {
+      list.sort(
+        (a, b) =>
+          (a.position ?? 0) - (b.position ?? 0) ||
+          a.createdAt.localeCompare(b.createdAt)
+      );
+    }
+    return map;
+  }, [projects]);
 
   return (
     <Modal
@@ -449,7 +490,8 @@ function ParentPickerModal({
               onPress={() => onPick(null)}
             />
             {goals.map((g) => {
-              const list = milestonesByGoal.get(g.id) ?? [];
+              const ms = milestonesByGoal.get(g.id) ?? [];
+              const ps = projectsByGoal.get(g.id) ?? [];
               return (
                 <View key={g.id} className="mt-1">
                   <PickerOption
@@ -462,7 +504,21 @@ function ParentPickerModal({
                     }
                     onPress={() => onPick({ kind: 'goal', id: g.id })}
                   />
-                  {list.map((m) => (
+                  {ps.map((p) => (
+                    <View key={p.id} className="ml-6">
+                      <PickerOption
+                        label={p.title}
+                        icon={LayersIcon}
+                        iconBgClass="bg-cyan-500/15"
+                        iconColorClass="text-cyan-500"
+                        isSelected={
+                          selected?.kind === 'project' && selected.id === p.id
+                        }
+                        onPress={() => onPick({ kind: 'project', id: p.id })}
+                      />
+                    </View>
+                  ))}
+                  {ms.map((m) => (
                     <View key={m.id} className="ml-6">
                       <PickerOption
                         label={m.title}

@@ -21,6 +21,7 @@ import { useHabitCompletionsStore } from '@/lib/stores/habit-completions';
 import { useHabitsStore } from '@/lib/stores/habits';
 import { useMilestonesStore } from '@/lib/stores/milestones';
 import { useOnboardingStore } from '@/lib/stores/onboarding';
+import { useProjectsStore } from '@/lib/stores/projects';
 import { useRoutinesStore } from '@/lib/stores/routines';
 import { useTodosStore } from '@/lib/stores/todos';
 import { useTrophiesStore } from '@/lib/stores/trophies';
@@ -54,6 +55,7 @@ export default function RootLayout() {
       useGoalsStore.getState().reset();
       useGoalImagesStore.getState().reset();
       useMilestonesStore.getState().reset();
+      useProjectsStore.getState().reset();
       useRoutinesStore.getState().reset();
       useHabitsStore.getState().reset();
       useHabitCompletionsStore.getState().reset();
@@ -69,6 +71,7 @@ export default function RootLayout() {
     useGoalsStore.getState().hydrate().catch(() => {});
     useGoalImagesStore.getState().hydrate().catch(() => {});
     useMilestonesStore.getState().hydrate().catch(() => {});
+    useProjectsStore.getState().hydrate().catch(() => {});
     useRoutinesStore.getState().hydrate().catch(() => {});
     useHabitsStore.getState().hydrate().catch(() => {});
     useHabitCompletionsStore.getState().hydrate().catch(() => {});
@@ -88,7 +91,16 @@ export default function RootLayout() {
             <Stack.Screen name="goal" options={{ presentation: 'modal' }} />
             <Stack.Screen name="milestone" options={{ presentation: 'modal' }} />
             <Stack.Screen name="habit" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="project" options={{ presentation: 'modal' }} />
             <Stack.Screen name="search" options={{ presentation: 'modal' }} />
+            <Stack.Screen
+              name="project-detail"
+              options={{
+                headerShown: true,
+                title: 'Project',
+                headerBackTitle: 'Back',
+              }}
+            />
             <Stack.Screen
               name="goal-detail"
               options={{

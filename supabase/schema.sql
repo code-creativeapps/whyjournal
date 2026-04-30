@@ -165,6 +165,26 @@ create index if not exists habit_completions_user_habit_idx on public.habit_comp
 create index if not exists habit_completions_habit_idx on public.habit_completions (habit_id, completed_at desc);
 
 -- =============================================================================
+-- projects (workstreams — concrete chunks of execution under a goal)
+--   Goal → Projects → Tasks. A project may optionally link to a milestone
+--   to declare "this work contributes to that progress marker".
+-- =============================================================================
+create table if not exists public.projects (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  goal_id uuid not null references public.goals(id) on delete cascade,
+  milestone_id uuid references public.milestones(id) on delete set null,
+  title text not null,
+  body text,
+  done boolean not null default false,
+  completed_at timestamptz,
+  position int not null default 0,
+  created_at timestamptz not null default now()
+);
+create index if not exists projects_goal_idx on public.projects (goal_id, position);
+create index if not exists projects_user_idx on public.projects (user_id);
+
+-- =============================================================================
 -- todos (master list — milestones live in their own table now)
 -- =============================================================================
 create table if not exists public.todos (
@@ -193,7 +213,7 @@ do $$
 declare
   t text;
 begin
-  for t in select unnest(array['entries','affirmations','bucket_items','goals','goal_images','milestones','routines','habits','habit_completions','trophies','todos']) loop
+  for t in select unnest(array['entries','affirmations','bucket_items','goals','goal_images','milestones','projects','routines','habits','habit_completions','trophies','todos']) loop
     execute format('alter table public.%I enable row level security', t);
 
     execute format('drop policy if exists "select own" on public.%I', t);
@@ -256,6 +276,13 @@ alter table public.todos add constraint todos_one_parent
   check (goal_id is null or milestone_id is null);
 create index if not exists todos_goal_idx on public.todos (goal_id);
 create index if not exists todos_milestone_idx on public.todos (milestone_id);
+
+-- todos.project_id: tasks always belong to a project in the new model.
+-- Existing rows with goal_id / milestone_id stay valid; the UI gradually
+-- migrates them by re-tagging.
+alter table public.todos add column if not exists project_id
+  uuid references public.projects(id) on delete cascade;
+create index if not exists todos_project_idx on public.todos (project_id);
 
 -- =============================================================================
 -- Storage: goal-images bucket

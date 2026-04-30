@@ -13,6 +13,7 @@ import { celebrateTodoCheck } from '@/lib/celebrate';
 import { GoalIcon } from '@/lib/goals/icon';
 import { useGoalsStore } from '@/lib/stores/goals';
 import { useMilestonesStore } from '@/lib/stores/milestones';
+import { useProjectsStore } from '@/lib/stores/projects';
 import { useTodosStore } from '@/lib/stores/todos';
 import type { Todo } from '@/lib/todos/types';
 
@@ -66,6 +67,7 @@ export default function TodosScreen() {
   const deleteItem = useTodosStore((state) => state.deleteItem);
   const goals = useGoalsStore((state) => state.items);
   const milestones = useMilestonesStore((state) => state.items);
+  const projects = useProjectsStore((state) => state.items);
   const insets = useSafeAreaInsets();
 
   const sections = React.useMemo(() => buildSections(items), [items]);
@@ -74,11 +76,17 @@ export default function TodosScreen() {
   function parentDisplay(
     todo: Todo
   ): { icon: string | undefined; name: string } | undefined {
+    if (todo.projectId) {
+      const p = projects.find((x) => x.id === todo.projectId);
+      if (p) {
+        // Project inherits its parent goal's icon for visual continuity.
+        const parentGoal = goals.find((x) => x.id === p.goalId);
+        return { icon: parentGoal?.icon, name: p.title };
+      }
+    }
     if (todo.milestoneId) {
       const m = milestones.find((x) => x.id === todo.milestoneId);
       if (m) {
-        // Milestones inherit their parent goal's icon — they don't carry one
-        // of their own.
         const parentGoal = goals.find((x) => x.id === m.goalId);
         return { icon: parentGoal?.icon, name: m.title };
       }

@@ -7,6 +7,7 @@ import { Redirect } from 'expo-router';
 import {
   BarChart3Icon,
   CheckSquareIcon,
+  LayersIcon,
   ListIcon,
   type LucideIcon,
   QuoteIcon,
@@ -74,6 +75,13 @@ const SECTIONS: Section[] = [
     iconColorClass: 'text-red-500',
   },
   {
+    name: 'projects',
+    label: 'Projects',
+    icon: LayersIcon,
+    bgClass: 'bg-cyan-500/15',
+    iconColorClass: 'text-cyan-500',
+  },
+  {
     name: 'habits',
     label: 'Habits',
     icon: RepeatIcon,
@@ -137,6 +145,7 @@ export default function DrawerLayout() {
       <Drawer.Screen name="affirmations" options={{ title: 'Reminders' }} />
       <Drawer.Screen name="bucket" options={{ title: 'Bucket list' }} />
       <Drawer.Screen name="goals" options={{ title: 'Goals' }} />
+      <Drawer.Screen name="projects" options={{ title: 'Projects' }} />
       <Drawer.Screen name="habits" options={{ title: 'Habits' }} />
       <Drawer.Screen name="trophies" options={{ title: 'Trophies' }} />
       <Drawer.Screen name="todos" options={{ title: 'Todos' }} />

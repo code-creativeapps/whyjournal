@@ -38,6 +38,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimatedBorder } from '@/components/animated-border';
 import { HoldToConfirmButton } from '@/components/hold-to-confirm-button';
+import { ProjectRow } from '@/components/project-row';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -52,13 +53,14 @@ import { useGoalsStore } from '@/lib/stores/goals';
 import { useHabitCompletionsStore } from '@/lib/stores/habit-completions';
 import { useHabitsStore } from '@/lib/stores/habits';
 import { useMilestonesStore } from '@/lib/stores/milestones';
+import { useProjectsStore } from '@/lib/stores/projects';
 import { useTodosStore } from '@/lib/stores/todos';
 import { cn } from '@/lib/utils';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const VELOCITY_DAYS = 14;
 
-type GoalTab = 'description' | 'milestones' | 'systems';
+type GoalTab = 'description' | 'milestones' | 'projects' | 'systems';
 
 export default function GoalDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -71,6 +73,7 @@ export default function GoalDetailScreen() {
   const allHabits = useHabitsStore((state) => state.items);
   const allHabitCompletions = useHabitCompletionsStore((state) => state.items);
   const allImages = useGoalImagesStore((state) => state.items);
+  const allProjects = useProjectsStore((state) => state.items);
 
   const [tab, setTab] = React.useState<GoalTab>('description');
 
@@ -97,6 +100,29 @@ export default function GoalDetailScreen() {
       .slice()
       .sort((a, b) => a.position - b.position || a.createdAt.localeCompare(b.createdAt));
   }, [allImages, id]);
+
+  const projectsForGoal = React.useMemo(() => {
+    if (!id) return [];
+    return allProjects
+      .filter((p) => p.goalId === id)
+      .slice()
+      .sort(
+        (a, b) =>
+          (a.position ?? 0) - (b.position ?? 0) ||
+          a.createdAt.localeCompare(b.createdAt)
+      );
+  }, [allProjects, id]);
+
+  const tasksByProjectId = React.useMemo(() => {
+    const map = new Map<string, typeof allTodos>();
+    for (const t of allTodos) {
+      if (!t.projectId) continue;
+      const list = map.get(t.projectId) ?? [];
+      list.push(t);
+      map.set(t.projectId, list);
+    }
+    return map;
+  }, [allTodos]);
 
   const habitsForGoal = React.useMemo(() => {
     if (!id) return [];
@@ -226,6 +252,13 @@ export default function GoalDetailScreen() {
               progress={progress}
               hasMilestones={hasMilestones}
             />,
+            <ProjectsTab
+              key="projects"
+              goalId={goal.id}
+              projects={projectsForGoal}
+              milestones={milestones}
+              tasksByProjectId={tasksByProjectId}
+            />,
             <SystemsTab
               key="systems"
               goalId={goal.id}
@@ -278,6 +311,7 @@ export default function GoalDetailScreen() {
 const TABS: { value: GoalTab; label: string }[] = [
   { value: 'description', label: 'Description' },
   { value: 'milestones', label: 'Milestones' },
+  { value: 'projects', label: 'Projects' },
   { value: 'systems', label: 'Systems' },
 ];
 
@@ -719,6 +753,65 @@ function MilestonesTab({
           }>
           <Icon as={PlusIcon} className="text-foreground" />
           <Text>Add milestone</Text>
+        </Button>
+      </View>
+    </View>
+  );
+}
+
+function ProjectsTab({
+  goalId,
+  projects,
+  milestones,
+  tasksByProjectId,
+}: {
+  goalId: string;
+  projects: ReturnType<typeof useProjectsStore.getState>['items'];
+  milestones: ReturnType<typeof useMilestonesStore.getState>['items'];
+  tasksByProjectId: Map<string, ReturnType<typeof useTodosStore.getState>['items']>;
+}) {
+  const milestoneById = React.useMemo(() => {
+    const map = new Map<string, (typeof milestones)[number]>();
+    for (const m of milestones) map.set(m.id, m);
+    return map;
+  }, [milestones]);
+
+  return (
+    <View className="flex-1">
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerClassName="gap-3 px-6 pb-4">
+        {projects.length > 0 ? (
+          <View className="overflow-hidden rounded-xl border border-border">
+            {projects.map((p, idx) => (
+              <React.Fragment key={p.id}>
+                {idx > 0 ? <View className="h-px bg-border" /> : null}
+                <ProjectRow
+                  project={p}
+                  milestone={
+                    p.milestoneId ? milestoneById.get(p.milestoneId) : undefined
+                  }
+                  tasks={tasksByProjectId.get(p.id) ?? []}
+                />
+              </React.Fragment>
+            ))}
+          </View>
+        ) : (
+          <Text variant="muted" className="text-sm">
+            No projects yet — break this goal down into the workstreams that
+            get it done.
+          </Text>
+        )}
+      </ScrollView>
+
+      <View className="border-t border-border px-6 pb-3 pt-3">
+        <Button
+          variant="outline"
+          onPress={() =>
+            router.push({ pathname: '/project', params: { goalId } })
+          }>
+          <Icon as={PlusIcon} className="text-foreground" />
+          <Text>Add project</Text>
         </Button>
       </View>
     </View>
