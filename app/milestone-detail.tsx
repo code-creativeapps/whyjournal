@@ -12,6 +12,7 @@ import {
 import * as React from 'react';
 import { Dimensions, Pressable, ScrollView, View } from 'react-native';
 import ConfettiCannon from 'react-native-confetti-cannon';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimatedBorder } from '@/components/animated-border';
 import { HoldToConfirmButton } from '@/components/hold-to-confirm-button';
@@ -34,6 +35,7 @@ export default function MilestoneDetailScreen() {
     milestone ? state.items.find((g) => g.id === milestone.goalId) : undefined
   );
 
+  const insets = useSafeAreaInsets();
   const [confettiTrigger, setConfettiTrigger] = React.useState(0);
 
   React.useEffect(
@@ -87,7 +89,8 @@ export default function MilestoneDetailScreen() {
           ),
         }}
       />
-      <ScrollView contentContainerClassName="gap-6 px-6 pt-12 pb-10">
+      <View className="flex-1">
+      <ScrollView style={{ flex: 1 }} contentContainerClassName="gap-6 px-6 pt-12 pb-6">
         <View className="items-center gap-4">
           <View
             className={cn(
@@ -124,9 +127,10 @@ export default function MilestoneDetailScreen() {
                   params: { id: goal.id },
                 })
               }
-              className="flex-row items-center gap-1.5 rounded-full bg-red-500/10 px-3 py-1 active:bg-red-500/20">
-              <Icon as={TargetIcon} size={13} className="text-red-500" />
-              <Text variant="small" className="text-sm text-red-600">
+              hitSlop={6}
+              className="flex-row items-center gap-1 active:opacity-60">
+              <Icon as={TargetIcon} size={12} className="text-red-500" />
+              <Text variant="muted" className="text-xs" numberOfLines={1}>
                 {goal.title}
               </Text>
             </Pressable>
@@ -154,27 +158,31 @@ export default function MilestoneDetailScreen() {
           </View>
         ) : null}
 
-        <View className="mt-2">
-          {milestone.done ? (
-            <View style={{ padding: 2 }}>
-              <HoldToConfirmButton
-                label="Hold to mark as not completed"
-                icon={RotateCcwIcon}
-                onConfirm={handleMarkNotCompleted}
-                silent
-              />
-            </View>
-          ) : (
-            <AnimatedBorder>
-              <HoldToConfirmButton
-                label="Hold to mark as completed"
-                icon={CheckIcon}
-                onConfirm={handleMarkCompleted}
-              />
-            </AnimatedBorder>
-          )}
-        </View>
       </ScrollView>
+
+      <View
+        className="border-t border-border bg-background px-6 pt-3"
+        style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
+        {milestone.done ? (
+          <View style={{ padding: 2 }}>
+            <HoldToConfirmButton
+              label="Hold to mark as not completed"
+              icon={RotateCcwIcon}
+              onConfirm={handleMarkNotCompleted}
+              silent
+            />
+          </View>
+        ) : (
+          <AnimatedBorder>
+            <HoldToConfirmButton
+              label="Hold to mark as completed"
+              icon={CheckIcon}
+              onConfirm={handleMarkCompleted}
+            />
+          </AnimatedBorder>
+        )}
+      </View>
+      </View>
       {confettiTrigger > 0 ? (
         <View pointerEvents="none" className="absolute inset-0">
           <ConfettiCannon

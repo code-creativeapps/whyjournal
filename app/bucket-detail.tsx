@@ -2,6 +2,7 @@ import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { CheckIcon, PencilIcon, StarIcon, XIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnimatedBorder } from '@/components/animated-border';
 import { HoldToConfirmButton } from '@/components/hold-to-confirm-button';
@@ -16,6 +17,7 @@ export default function BucketDetailScreen() {
     id ? state.items.find((b) => b.id === id) : undefined
   );
   const updateItem = useBucketStore((state) => state.updateItem);
+  const insets = useSafeAreaInsets();
 
   React.useEffect(() => {
     if (id && !item && router.canGoBack()) router.back();
@@ -54,29 +56,35 @@ export default function BucketDetailScreen() {
           ),
         }}
       />
-      <ScrollView contentContainerClassName="gap-6 px-6 pt-12 pb-10">
-        <View className="items-center gap-4">
-          <View className="size-20 items-center justify-center rounded-full bg-yellow-500/15">
-            <Icon as={StarIcon} size={40} className="text-yellow-500" />
+      <View className="flex-1">
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerClassName="gap-6 px-6 pt-12 pb-6">
+          <View className="items-center gap-4">
+            <View className="size-20 items-center justify-center rounded-full bg-yellow-500/15">
+              <Icon as={StarIcon} size={40} className="text-yellow-500" />
+            </View>
+            <Text
+              variant="h2"
+              className={cn('text-center', item.done && 'text-muted-foreground line-through')}>
+              {item.title}
+            </Text>
           </View>
-          <Text
-            variant="h2"
-            className={cn('text-center', item.done && 'text-muted-foreground line-through')}>
-            {item.title}
-          </Text>
-        </View>
 
-        {item.body ? (
-          <Text className="text-center text-base leading-7 text-foreground">{item.body}</Text>
-        ) : null}
+          {item.body ? (
+            <Text className="text-center text-base leading-7 text-foreground">{item.body}</Text>
+          ) : null}
+        </ScrollView>
 
-        {item.done ? (
-          <View className="flex-row items-center gap-2 self-start rounded-full bg-green-500/15 px-3 py-1.5">
-            <Icon as={CheckIcon} size={14} className="text-green-600" />
-            <Text className="text-sm font-semibold text-green-700">Completed</Text>
-          </View>
-        ) : (
-          <View className="mt-4">
+        <View
+          className="border-t border-border bg-background px-6 pt-3"
+          style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
+          {item.done ? (
+            <View className="flex-row items-center justify-center gap-2 rounded-full bg-green-500/15 px-3 py-2">
+              <Icon as={CheckIcon} size={14} className="text-green-600" />
+              <Text className="text-sm font-semibold text-green-700">Completed</Text>
+            </View>
+          ) : (
             <AnimatedBorder>
               <HoldToConfirmButton
                 label="Hold to mark as completed"
@@ -84,9 +92,9 @@ export default function BucketDetailScreen() {
                 onConfirm={handleMarkCompleted}
               />
             </AnimatedBorder>
-          </View>
-        )}
-      </ScrollView>
+          )}
+        </View>
+      </View>
     </>
   );
 }

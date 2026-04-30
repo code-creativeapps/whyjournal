@@ -45,7 +45,9 @@ export default function EntryDetailScreen() {
           ),
         }}
       />
-      <ScrollView contentContainerClassName="px-6 pt-12 pb-10 gap-8">
+      <ScrollView
+        contentContainerClassName="px-6 py-10 gap-8"
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
         <View className="items-center gap-4">
           <View
             className={cn(
@@ -54,7 +56,7 @@ export default function EntryDetailScreen() {
             )}>
             <Icon as={visual.icon} size={40} className={visual.iconColorClass} />
           </View>
-          <Text variant="h2" className="text-center">
+          <Text variant="h2" className="border-b-0 pb-0 text-center">
             {entry.title}
           </Text>
         </View>

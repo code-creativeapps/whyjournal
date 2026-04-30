@@ -197,19 +197,22 @@ export default function ProjectDetailScreen() {
                 ))}
               </View>
             )}
-            <Button
-              variant="outline"
-              onPress={() =>
-                router.push({
-                  pathname: '/simple-item',
-                  params: { kind: 'todo', projectId: project.id },
-                })
-              }>
-              <Icon as={PlusIcon} className="text-foreground" />
-              <Text>Add task</Text>
-            </Button>
           </View>
         </ScrollView>
+
+        <View className="border-t border-border px-6 pb-3 pt-3">
+          <Button
+            variant="outline"
+            onPress={() =>
+              router.push({
+                pathname: '/simple-item',
+                params: { kind: 'todo', projectId: project.id },
+              })
+            }>
+            <Icon as={PlusIcon} className="text-foreground" />
+            <Text>Add task</Text>
+          </Button>
+        </View>
 
         <View
           className="border-t border-border bg-background px-6 pt-3"
