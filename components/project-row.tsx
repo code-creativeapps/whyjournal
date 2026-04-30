@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { LayersIcon, TargetIcon } from 'lucide-react-native';
+import { DiamondIcon, LayersIcon } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 
 import { Icon } from '@/components/ui/icon';
@@ -61,7 +61,7 @@ export function ProjectRow({
         {subtitle ? (
           <View className="flex-row items-center gap-1">
             {milestone ? (
-              <Icon as={TargetIcon} size={11} className="text-pink-400" />
+              <Icon as={DiamondIcon} size={11} className="text-orange-500" />
             ) : null}
             <Text variant="muted" className="text-xs" numberOfLines={1}>
               {subtitle}

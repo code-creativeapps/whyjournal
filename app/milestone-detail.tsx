@@ -2,6 +2,7 @@ import { Stack, router, useLocalSearchParams } from 'expo-router';
 import {
   CalendarIcon,
   CheckIcon,
+  DiamondIcon,
   GiftIcon,
   PencilIcon,
   RotateCcwIcon,
@@ -91,12 +92,12 @@ export default function MilestoneDetailScreen() {
           <View
             className={cn(
               'size-20 items-center justify-center rounded-full',
-              milestone.done ? 'bg-green-500' : 'bg-pink-400/15'
+              milestone.done ? 'bg-green-500' : 'bg-orange-500/15'
             )}>
             <Icon
-              as={TargetIcon}
+              as={DiamondIcon}
               size={40}
-              className={milestone.done ? 'text-white' : 'text-pink-400'}
+              className={milestone.done ? 'text-white' : 'text-orange-500'}
             />
           </View>
           <Text

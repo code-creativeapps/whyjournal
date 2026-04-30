@@ -2,6 +2,7 @@ import { Stack, router } from 'expo-router';
 import {
   BookOpenIcon,
   CheckSquareIcon,
+  DiamondIcon,
   QuoteIcon,
   RepeatIcon,
   StarIcon,
@@ -50,9 +51,9 @@ const KIND_VISUAL: Record<
     label: 'Goal',
   },
   milestone: {
-    icon: TargetIcon,
-    bgClass: 'bg-pink-400/15',
-    iconColorClass: 'text-pink-400',
+    icon: DiamondIcon,
+    bgClass: 'bg-orange-500/15',
+    iconColorClass: 'text-orange-500',
     label: 'Milestone',
   },
   habit: {

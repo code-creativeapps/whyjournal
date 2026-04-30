@@ -4,6 +4,7 @@ import { Stack, router, useLocalSearchParams } from 'expo-router';
 import {
   CalendarIcon,
   CheckIcon,
+  DiamondIcon,
   LayersIcon,
   LinkIcon,
   TargetIcon,
@@ -522,9 +523,9 @@ function ParentPickerModal({
                     <View key={m.id} className="ml-6">
                       <PickerOption
                         label={m.title}
-                        icon={TargetIcon}
-                        iconBgClass="bg-pink-400/15"
-                        iconColorClass="text-pink-400"
+                        icon={DiamondIcon}
+                        iconBgClass="bg-orange-500/15"
+                        iconColorClass="text-orange-500"
                         isSelected={
                           selected?.kind === 'milestone' && selected.id === m.id
                         }

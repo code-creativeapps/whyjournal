@@ -12,6 +12,7 @@ import {
   ChevronsUpDownIcon,
   CornerDownRightIcon,
   CrownIcon,
+  DiamondIcon,
   GripVerticalIcon,
   TargetIcon,
 } from 'lucide-react-native';
@@ -478,12 +479,12 @@ function GoalListItem({
                 <View
                   className={cn(
                     'ml-1 size-6 items-center justify-center rounded-full',
-                    m.done ? 'bg-green-500' : 'bg-pink-400/15'
+                    m.done ? 'bg-green-500' : 'bg-orange-500/15'
                   )}>
                   <Icon
-                    as={TargetIcon}
+                    as={DiamondIcon}
                     size={14}
-                    className={m.done ? 'text-white' : 'text-pink-400'}
+                    className={m.done ? 'text-white' : 'text-orange-500'}
                   />
                 </View>
                 <Text
@@ -538,12 +539,12 @@ function MilestonesList({
               <View
                 className={cn(
                   'size-6 items-center justify-center rounded-full',
-                  item.done ? 'bg-green-500' : 'bg-pink-400/15'
+                  item.done ? 'bg-green-500' : 'bg-orange-500/15'
                 )}>
                 <Icon
-                  as={TargetIcon}
+                  as={DiamondIcon}
                   size={14}
-                  className={item.done ? 'text-white' : 'text-pink-400'}
+                  className={item.done ? 'text-white' : 'text-orange-500'}
                 />
               </View>
               <View className="flex-1">

@@ -1,6 +1,7 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import {
   CheckIcon,
+  DiamondIcon,
   LayersIcon,
   PencilIcon,
   PlusIcon,
@@ -122,36 +123,37 @@ export default function ProjectDetailScreen() {
               )}>
               {project.title}
             </Text>
-            {goal ? (
-              <Pressable
-                onPress={() =>
-                  router.replace({ pathname: '/goal-detail', params: { id: goal.id } })
-                }
-                className="flex-row items-center gap-1.5 rounded-full bg-red-500/10 px-3 py-1 active:bg-red-500/20">
-                <Icon as={TargetIcon} size={13} className="text-red-500" />
-                <Text variant="small" className="text-sm text-red-600" numberOfLines={1}>
-                  {goal.title}
-                </Text>
-              </Pressable>
-            ) : null}
-            {milestone ? (
-              <Pressable
-                onPress={() =>
-                  router.push({
-                    pathname: '/milestone-detail',
-                    params: { id: milestone.id },
-                  })
-                }
-                className="flex-row items-center gap-1.5 rounded-full bg-pink-400/15 px-3 py-1 active:bg-pink-400/25">
-                <Icon as={TargetIcon} size={13} className="text-pink-400" />
-                <Text
-                  variant="small"
-                  className="text-sm text-pink-600"
-                  numberOfLines={1}>
-                  Contributes to: {milestone.title}
-                </Text>
-              </Pressable>
-            ) : null}
+            <View className="flex-row flex-wrap items-center justify-center gap-x-3 gap-y-1">
+              {goal ? (
+                <Pressable
+                  onPress={() =>
+                    router.replace({ pathname: '/goal-detail', params: { id: goal.id } })
+                  }
+                  hitSlop={6}
+                  className="flex-row items-center gap-1 active:opacity-60">
+                  <Icon as={TargetIcon} size={12} className="text-red-500" />
+                  <Text variant="muted" className="text-xs" numberOfLines={1}>
+                    {goal.title}
+                  </Text>
+                </Pressable>
+              ) : null}
+              {milestone ? (
+                <Pressable
+                  onPress={() =>
+                    router.push({
+                      pathname: '/milestone-detail',
+                      params: { id: milestone.id },
+                    })
+                  }
+                  hitSlop={6}
+                  className="flex-row items-center gap-1 active:opacity-60">
+                  <Icon as={DiamondIcon} size={12} className="text-orange-500" />
+                  <Text variant="muted" className="text-xs" numberOfLines={1}>
+                    {milestone.title}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
           </View>
 
           {project.body ? (

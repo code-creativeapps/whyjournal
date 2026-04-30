@@ -1,5 +1,5 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { ChevronRightIcon, TargetIcon, Trash2Icon } from 'lucide-react-native';
+import { ChevronRightIcon, DiamondIcon, Trash2Icon } from 'lucide-react-native';
 import * as React from 'react';
 import {
   Alert,
@@ -199,8 +199,8 @@ export default function ProjectFormScreen() {
               )}>
               {selectedMilestone ? (
                 <>
-                  <View className="size-6 items-center justify-center rounded-full bg-pink-400/15">
-                    <Icon as={TargetIcon} size={14} className="text-pink-400" />
+                  <View className="size-6 items-center justify-center rounded-full bg-orange-500/15">
+                    <Icon as={DiamondIcon} size={14} className="text-orange-500" />
                   </View>
                   <Text className="flex-1 text-base" numberOfLines={1}>
                     {selectedMilestone.title}
@@ -268,8 +268,8 @@ export default function ProjectFormScreen() {
               setMilestonePickerOpen(false);
             }}
             className="flex-row items-center gap-3 rounded-xl px-3 py-3 active:bg-accent">
-            <View className="size-6 items-center justify-center rounded-full bg-pink-400/15">
-              <Icon as={TargetIcon} size={14} className="text-pink-400" />
+            <View className="size-6 items-center justify-center rounded-full bg-orange-500/15">
+              <Icon as={DiamondIcon} size={14} className="text-orange-500" />
             </View>
             <Text className="flex-1 text-base" numberOfLines={1}>
               {m.title}

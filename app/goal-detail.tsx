@@ -12,6 +12,7 @@ import {
   CalendarIcon,
   CheckIcon,
   CrownIcon,
+  DiamondIcon,
   GiftIcon,
   HeartIcon,
   ImagesIcon,
@@ -718,12 +719,12 @@ function MilestonesTab({
                     <View
                       className={cn(
                         'size-6 items-center justify-center rounded-full',
-                        m.done ? 'bg-green-500' : 'bg-pink-400/15'
+                        m.done ? 'bg-green-500' : 'bg-orange-500/15'
                       )}>
                       <Icon
-                        as={TargetIcon}
+                        as={DiamondIcon}
                         size={14}
-                        className={m.done ? 'text-white' : 'text-pink-400'}
+                        className={m.done ? 'text-white' : 'text-orange-500'}
                       />
                     </View>
                     <Text
