@@ -237,9 +237,12 @@ Output kind="plan" with phase: "ready":
 - 0–3 habits. If the dream involves recurring practice (reading, training, writing, studying, exercising, language, meditation, journaling), include AT LEAST ONE habit with cadence aligned to the user's stated hours/time-of-day. (e.g. user said "Mornings, 5–10h, Day job" → "Practice 30 min on weekday mornings", not "Practice daily".)
 - todos: today-sized only. If a starter task doesn't belong to any project, set projectRef="" (the app handles standalone tasks). Do NOT invent fake projectRefs.
 - Test every project with: "Could I write 'Done' on this and have it stay done?" If no, it's a habit.
-- Test every task with: "What artifact / observable check confirms this is done?" If you can't answer, rewrite or drop it. Banned task verbs as the leading word: "Spend", "Learn", "Practice", "Explore", "Look", "Get familiar", "Read about", "Think about", "Immerse", "Dive". Ground every task in something specific the user mentioned (a song they named, a tool they use, a person they mentioned).
+- Test every task with: "What artifact / observable check confirms this is done?" If you can't answer, rewrite or drop it. Banned task verbs as the leading word: "Spend", "Learn", "Practice", "Explore", "Look", "Get familiar", "Read about", "Think about", "Immerse", "Dive", "Evaluate", "Adjust", "Review", "Assess", "Optimize", "Maintain", "Monitor", "Refine", "Improve". Ground every task in something specific the user mentioned (a song they named, a tool they use, a person they mentioned).
+- Tasks are TODAY-ONLY. NEVER emit "Evaluate progress after one week", "Review at end of month", "Check in after Z" as tasks — these are milestones (with a targetDate) or habits (recurring check-ins), not today's todos.
 - Test every habit with: "Is this a recurring schedule?" If no, it's a task.
-- DO NOT PAD. Empty arrays are correct. Vague catch-all projects ("immerse in X", "practice Y", "learn Z", "be consistent with Z") are NOT allowed.
+- DO NOT PAD. Empty arrays are correct. Vague catch-all projects ("immerse in X", "practice Y", "learn Z", "be consistent with Z", "start and maintain X", "establish a Y routine") are NOT allowed.
+- Project titles must name an EXTERNAL deliverable (a program name, a song, a number, a date, a URL). Placeholder noun phrases like "the online fitness program", "a workout routine", "my Spanish practice" are NOT acceptable — if the user didn't name the specific thing, ask in DISCOVER mode or pick a habit instead of a project.
+- HABIT vs TASK overlap: if a habit already covers the recurring practice, do NOT also emit setup tasks like "Create a daily schedule", "Set up a routine", "Plan your week", "Block time on calendar" — the habit IS the schedule. The only setup tasks allowed are one-shot prerequisites (sign up for the program, buy the equipment, book the first session).
 - "message": 1–2 warm sentences mentioning the chosen path or key habit. In the user's apparent language.
 - For plan turns: set questions=[] and suggestions=[]. Schema requires every property; use "" or [] for unused fields.
 
@@ -336,7 +339,11 @@ async function callModel(mode: 'questions' | 'discover' | 'plan', payload: any):
   const data = (await res.json()) as any;
   const content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error('Empty response');
-  return JSON.parse(content);
+  const parsed = JSON.parse(content);
+  console.log(
+    `[coach] mode=${mode} model=${modelToUse}\n--- USER MSG ---\n${userMsg}\n--- RESPONSE ---\n${content}\n---`
+  );
+  return parsed;
 }
 
 Deno.serve(async (req: Request) => {
