@@ -413,11 +413,9 @@ export default function CoachScreen() {
       ? 'Tell me a dream — type or hold the mic'
       : stage.kind === 'discover'
         ? stage.currentSuggestions.length > 0
-          ? stage.currentHint || 'Tap a chip or type your own'
-          : stage.currentHint || 'Take your time — speak or type'
-        : stage.kind === 'script'
-          ? stage.steps[stage.stepIndex]?.inputHint || 'Or type / speak your own'
-          : 'Or type / speak your own';
+          ? 'Tap a chip or type your own'
+          : 'Type or hold the mic'
+        : 'Or type / speak your own';
 
   return (
     <View className="flex-1 bg-background">
@@ -457,6 +455,7 @@ export default function CoachScreen() {
           <WizardStep
             ack=""
             question={stage.steps[stage.stepIndex].question}
+            hint={stage.steps[stage.stepIndex].inputHint}
             suggestions={stage.steps[stage.stepIndex].suggestions}
             onPickSuggestion={answerScriptStep}
           />
@@ -464,6 +463,7 @@ export default function CoachScreen() {
           <WizardStep
             ack=""
             question={stage.currentQuestion}
+            hint={stage.currentHint}
             suggestions={stage.currentSuggestions}
             onPickSuggestion={answerDiscover}
           />
@@ -624,11 +624,13 @@ function DreamEntry({
 function WizardStep({
   ack,
   question,
+  hint,
   suggestions,
   onPickSuggestion,
 }: {
   ack: string;
   question: string;
+  hint?: string;
   suggestions: string[];
   onPickSuggestion: (text: string) => void;
 }) {
@@ -642,6 +644,11 @@ function WizardStep({
       <Text variant="h2" className="border-b-0 pb-0 text-center">
         {question}
       </Text>
+      {hint ? (
+        <Text variant="muted" className="-mt-2 text-center text-sm italic">
+          {hint}
+        </Text>
+      ) : null}
       {suggestions.length > 0 ? (
         <View className="mt-2 gap-2">
           {suggestions.map((s) => (
