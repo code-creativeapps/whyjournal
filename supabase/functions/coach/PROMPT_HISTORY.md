@@ -419,6 +419,27 @@ ModePicker (tap one)
 - Wizard renders without chips when in Deep mode; placeholder reads "Take your time — speak or type".
 - Progress bar in Deep mode = `currentTurn / 6` (steps 1/5 .. 5/5 .. plan).
 
+---
+
+## v8 — Anti-vague tightening + stronger model for plan synthesis
+
+**When:** after testing v7 Deep mode against a music/guitar goal, plans came back with vague items like "Spend time on music theory online resources" and "Learn and practice basic chord transitions". The Project anti-vague rule existed in v6/v7 but did not extend to Tasks, and `gpt-4o-mini` was treating the rules as soft suggestions.
+
+**What changed:**
+
+1. **Task anti-vague block** added to the data-model section. Tasks must end in a concrete artifact or verifiable check. Banned leading verbs: "Spend", "Learn", "Practice", "Explore", "Look into", "Get familiar", "Read about", "Think about", "Immerse", "Dive". Examples on both sides.
+2. **Project rule reinforced** — title must name the deliverable directly; if you can't name it, use a habit instead (no project).
+3. **CONCRETENESS question** is now mandatory in Deep mode alongside WHY. One of the 5 turns must extract a specific deliverable / song / deadline / measurable outcome ("Name one specific song you want to play in 30 days", "What's the first chapter you'd ship?"). This anchors the plan in something concrete.
+4. **PLAN-mode test for tasks**: every task must answer "what artifact / observable check confirms this is done?" — drop or rewrite if it can't.
+5. **Stronger model for plan synthesis.** Plan calls (and the turn-6 discover→plan) use `OPENAI_PLAN_MODEL` (default `gpt-4o`); questions/discover stay on `gpt-4o-mini` for cost/latency. Override either via env.
+6. QUESTIONS-mode count tightened to 3–5 (was 5–8) to match v6/v7 intent.
+
+**Why it should help:** the vague items the user saw were Tasks, not Projects, and the prompt only forbade vagueness on Projects. The new task block names the failure modes verbatim. The CONCRETENESS question gives the model a specific anchor (a song, a chapter, a number) to ground tasks in. The model bump matters because mini was pattern-matching the Project rule but failing to generalize it.
+
+**Revert:** see `git log -- supabase/functions/coach/index.ts`. The plan-model split lives in `callModel`'s `modelToUse`/`isPlanCall` block; remove it to go back to a single model. The CONCRETENESS rule lives in the DISCOVER MODE "Coverage requirements" list.
+
+---
+
 - **Full revert** to a prior version: `git log -- supabase/functions/coach/index.ts` and `git show <sha>:supabase/functions/coach/index.ts > /tmp/coach.ts`.
 - **Just the prompt:** the entire `SYSTEM_PROMPT` template literal can be replaced; the rest of the file (modes, schema, fetch wiring) is independent.
 - **Just the architecture:** v3–v5 used the per-turn `messages` shape. To go back, restore `askCoach(messages)` in `lib/coach/api.ts` and the `mode: 'plan'` body shape `{ messages, context }`.

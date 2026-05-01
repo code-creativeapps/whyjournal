@@ -8,6 +8,7 @@
 
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 const MODEL = Deno.env.get('OPENAI_MODEL') ?? 'gpt-4o-mini';
+const PLAN_MODEL = Deno.env.get('OPENAI_PLAN_MODEL') ?? 'gpt-4o';
 const TRANSCRIBE_MODEL = Deno.env.get('OPENAI_TRANSCRIBE_MODEL') ?? 'whisper-1';
 
 const CORS_HEADERS = {
@@ -155,13 +156,13 @@ Each mode has a different output schema. Follow the schema for the mode you are 
 
 - Goal = direction. OUTCOME goal: real end-state with a targetDate. IDENTITY goal: ongoing practice / who you want to be (no targetDate).
 - Milestone = optional progress marker on a goal.
-- Project = a STRATEGY with a clear deliverable / end-state. Vague catch-alls ("immerse in X", "practice Y", "be consistent with Z", "learn Z") are NOT projects.
+- Project = a STRATEGY with a clear deliverable / end-state. The TITLE must name the deliverable directly (e.g. "Record a 1-min cover of [song]", "Ship a landing page at example.com", "Pass the B1 oral exam"). Vague catch-alls ("immerse in X", "practice Y", "be consistent with Z", "learn Z", "explore X", "get better at Y") are NOT projects — they're habits or vibes.
 - Habit = recurring practice. Mapping:
   - "Every day" / "Daily X min" → frequencyKind="daily", daysOfWeek=[], timesPerPeriod=1.
   - "On Mon/Wed/Fri" → frequencyKind="weekly", daysOfWeek=[1,3,5], timesPerPeriod=3.
   - "3 times any day per week" → frequencyKind="weekly", daysOfWeek=[], timesPerPeriod=3.
   daysOfWeek: 0=Sun..6=Sat.
-- Task = one-shot action that closes a loop on a project. Verb-first, doable today, <60 min. NEVER attach directly to a goal/milestone in new plans.
+- Task = one-shot action that closes a loop on a project. Verb-first, doable today, <60 min, AND must end in a concrete artifact or verifiable check ("what exists or is true when this is done?"). Examples that pass: "Print the C-major scale chart and tape it next to the guitar", "Record a 30-second clip of D→G transition", "Book a trial lesson on Preply". Examples that FAIL (banned): "Spend time on X", "Learn Y", "Practice Z", "Explore X", "Look into Y", "Get familiar with Z", "Read about X", "Think about Y" — these are not tasks. NEVER attach directly to a goal/milestone in new plans.
 
 # What you receive
 
@@ -175,7 +176,7 @@ Each request includes:
 
 Input you receive: the user's dream + the existing-items context. The dream may be one sentence (e.g. "I want to read 5 books in 3 months") or vaguer.
 
-Goal: generate the FULL discovery checklist for THIS specific dream — 5 to 8 questions, in the order they should be asked. Tailor every question to the dream:
+Goal: generate the FULL discovery checklist for THIS specific dream — 3 to 5 questions, in the order they should be asked. Tailor every question to the dream:
 - Reading goals get reading-flavored questions (genre interest, current reading habits, time-of-day, audiobook ok?, etc.).
 - Fitness goals get fitness questions (current routine, injuries, gym access, preferred activity).
 - Business / income goals get current skills, prior attempts, audience, hours/week, financial floor.
@@ -217,7 +218,8 @@ Pick the 5 most useful questions for THIS specific dream. Don't waste a turn —
 
 Coverage requirements across the 5 turns:
 - Exactly ONE WHY question — surface the user's underlying motivation. Examples: "Why does this matter to you?", "What changes in your life when you achieve it?". Non-negotiable.
-- Cover at least: motivation (WHY), specifics of the goal, current state, constraints, and a question that helps you choose the right strategy. Adapt the order to what the conversation reveals.
+- Exactly ONE CONCRETENESS question — force the user to name a specific deliverable, artifact, song, deadline, milestone, or measurable outcome. Examples: "Name one specific song you want to be able to play in 30 days.", "What's the first chapter you'd ship?", "What level / score / weight would you call 'done'?". This is what lets the plan have concrete tasks instead of vague advice.
+- Cover at least: motivation (WHY), a concrete deliverable (CONCRETENESS), current state, constraints, and a strategy/leverage question. Adapt the order to what the conversation reveals.
 - Don't repeat questions you already have answers to (read the history).
 
 On turn 6 (when you receive "Final plan"), output kind="plan" following PLAN MODE rules below, grounded in the dream + the 5 history answers.
@@ -231,10 +233,11 @@ Goal: produce the final structured plan, grounded in the dream + answers.
 Output kind="plan" with phase: "ready":
 - ONE goal (or reuse from context). targetDate matches the user's "when"-like answer when possible. why = user's "why"-like answer (verbatim or lightly cleaned).
 - 0–3 milestones (real progress markers, only if useful).
-- 0–3 projects. For OUTCOME goals, ONE main project with a concrete deliverable + 3–5 today-sized tasks under it. For IDENTITY goals, 0 projects unless the user named a sub-deliverable.
+- 0–3 projects. For OUTCOME goals, ONE main project whose TITLE names a concrete deliverable (see Project rule above) + 3–5 today-sized tasks under it. For IDENTITY goals, 0 projects unless the user named a sub-deliverable. If you can't name the deliverable, do not create a project — use a habit instead.
 - 0–3 habits. If the dream involves recurring practice (reading, training, writing, studying, exercising, language, meditation, journaling), include AT LEAST ONE habit with cadence aligned to the user's stated hours/time-of-day. (e.g. user said "Mornings, 5–10h, Day job" → "Practice 30 min on weekday mornings", not "Practice daily".)
 - todos: today-sized only. If a starter task doesn't belong to any project, set projectRef="" (the app handles standalone tasks). Do NOT invent fake projectRefs.
 - Test every project with: "Could I write 'Done' on this and have it stay done?" If no, it's a habit.
+- Test every task with: "What artifact / observable check confirms this is done?" If you can't answer, rewrite or drop it. Banned task verbs as the leading word: "Spend", "Learn", "Practice", "Explore", "Look", "Get familiar", "Read about", "Think about", "Immerse", "Dive". Ground every task in something specific the user mentioned (a song they named, a tool they use, a person they mentioned).
 - Test every habit with: "Is this a recurring schedule?" If no, it's a task.
 - DO NOT PAD. Empty arrays are correct. Vague catch-all projects ("immerse in X", "practice Y", "learn Z", "be consistent with Z") are NOT allowed.
 - "message": 1–2 warm sentences mentioning the chosen path or key habit. In the user's apparent language.
@@ -302,8 +305,15 @@ async function callModel(mode: 'questions' | 'discover' | 'plan', payload: any):
   const schemaName =
     mode === 'questions' ? 'CoachQuestions' : mode === 'discover' ? 'CoachDiscover' : 'CoachPlan';
 
+  // Plan synthesis is the highest-leverage call — use the stronger model.
+  // For discover, use the stronger model only on the final plan turn.
+  const isPlanCall =
+    mode === 'plan' ||
+    (mode === 'discover' && (payload.turn ?? 1) > (payload.totalQuestionTurns ?? 5));
+  const modelToUse = isPlanCall ? PLAN_MODEL : MODEL;
+
   const body = {
-    model: MODEL,
+    model: modelToUse,
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
       { role: 'user', content: userMsg },
