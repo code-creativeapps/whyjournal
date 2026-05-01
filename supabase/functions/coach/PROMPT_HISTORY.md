@@ -440,6 +440,46 @@ ModePicker (tap one)
 
 ---
 
+---
+
+## v9 series — Iterative tightening on top of v8
+
+Versions v8.1 through v9.7 were a series of small tactical fixes driven by observing actual plan output for an Italian-learning dream. Each fix added rules without restructuring; by v9.7 the prompt was ~125 lines with significant redundancy and a few internal contradictions.
+
+**What was added in this series:**
+- v8.1: more banned task verbs (Evaluate, Adjust, Review, Assess, Optimize, Maintain, Monitor, Refine, Improve); habit/task overlap ban; today-only rule for tasks; project titles must name external things; logging via `console.log`.
+- v8.2: inject `Today: YYYY-MM-DD` into every user message; ban open strategy/methods questions; habits must encode WHEN + WHAT.
+- v8.3: ban Research/Investigate/Consider/Discover/Familiarize on tasks; force habits to lead with method/slot, not vibe verb.
+- v8.4: habits MUST name a tool/partner ("could I do this tonight without thinking?" test).
+- v9: chips on choice questions in Deep mode (with "Other"); `inputHint` field added to schema; banned inlining option lists in question text.
+- v9.2: open-ended method questions banned in all rephrasings; methods only as chip-forced-choice with specific named options.
+- v9.3: VALUE TEST + filler ban (time-of-day for non-physical goals, etc.) + higher-value 5th-question shapes (BLOCKERS, ACCOUNTABILITY, TRADE-OFF).
+- v9.4: strip parenthetical "(e.g., X, Y)" from question text — into hint or chips.
+- v9.5: standalone setup tasks always required even without a project; hint moved to visible help text under question.
+- v9.6: setup tasks must reference SAME tools as habits (coherence rule); ONE-METHOD rule for ≤3h/week budgets.
+- v9.7: outcome goals require at least one interim milestone with measurable checkpoint.
+
+**Why we stopped patching and rewrote:** The accumulated rules had three issues — (1) the vague-project ban appeared in 4 different spots with slightly different wording, (2) the L153 intro line "no chips in DISCOVER" contradicted the L216+ chip rules added later, (3) banned task verbs lived in two places with inconsistent lists, (4) the inline schema doc and "fixed-key answers" reference were stale (the implementation no longer used those). v10 consolidates without losing any earned constraint.
+
+---
+
+## v10 — Consolidated rewrite
+
+**When:** after the v9 series, the prompt was reviewed end-to-end and rewritten without losing constraints.
+
+**What changed structurally:**
+- Single "Universal anti-vague rules" section listing all banned-verb tables in one place.
+- Data-model section now contains the *definitive* rule for each entity (project = deliverable, habit = tool+slot+duration, task = artifact); plan-mode section just references them.
+- DISCOVER and QUESTIONS modes describe *only* the question-generation rules; PLAN mode owns all synthesis rules.
+- Stale "fixed-key answers" doc and inline schema doc removed (structured outputs enforce the schema).
+- The hard ban on open-ended method questions moved out of the "5th-question shapes" list into its own DISCOVER rule.
+- HABIT vs TASK overlap rule moved into the task definition.
+- ONE-METHOD rule, COHERENCE rule, and required-milestone-for-outcome rule preserved verbatim.
+
+**Same constraints, ~30% shorter, no contradictions.**
+
+---
+
 - **Full revert** to a prior version: `git log -- supabase/functions/coach/index.ts` and `git show <sha>:supabase/functions/coach/index.ts > /tmp/coach.ts`.
 - **Just the prompt:** the entire `SYSTEM_PROMPT` template literal can be replaced; the rest of the file (modes, schema, fetch wiring) is independent.
 - **Just the architecture:** v3–v5 used the per-turn `messages` shape. To go back, restore `askCoach(messages)` in `lib/coach/api.ts` and the `mode: 'plan'` body shape `{ messages, context }`.
