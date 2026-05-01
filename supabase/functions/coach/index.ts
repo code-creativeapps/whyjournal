@@ -217,11 +217,11 @@ LOW-VALUE FILLERS to avoid:
 - "How will you stay motivated?" / "What does success feel like?" without forcing measurable.
 - "Are you ready to commit?" / "How important is this?" — performative.
 
-HIGHER-VALUE 5th-question shapes when basics are covered:
-- BLOCKERS: "What's most likely to make you stop? (inconsistency / boredom / no time / not seeing progress / Other)".
-- ACCOUNTABILITY: "Who'll know you're doing this? (partner / friend / coach / no one — solo / Other)".
-- TRADE-OFF: "If you only had 1 hour this week, you'd spend it on: (speaking / listening / vocab / grammar / Other)".
-- DEEPER CONCRETENESS: pin the previous answer tighter ("You said 'date in Italian' — would 'order dinner + small talk' count, or do you want to discuss feelings?").
+HIGHER-VALUE 5th-question shapes when basics are covered (note: question text stays clean; options ALWAYS go in suggestions, never in the question):
+- BLOCKERS — question: "What's most likely to make you stop?" — chips: Inconsistency, Boredom, No time, Not seeing progress, Other — I'll say it.
+- ACCOUNTABILITY — question: "Who'll know you're doing this?" — chips: A partner, A friend, A coach, No one — solo, Other — I'll say it.
+- TRADE-OFF — question: "If you only had 1 hour this week, you'd spend it on…?" — chips: Speaking, Listening, Vocab, Grammar, Other — I'll say it.
+- DEEPER CONCRETENESS (free-text) — question: "You said 'date in Italian' — would 'order dinner + small talk' count, or are you aiming higher?".
 
 # PLAN MODE
 
