@@ -1,5 +1,6 @@
 import { Stack, router } from 'expo-router';
 import {
+  ArrowUpIcon,
   CheckIcon,
   CheckSquareIcon,
   DiamondIcon,
@@ -47,8 +48,8 @@ import { useProjectsStore } from '@/lib/stores/projects';
 import { cn } from '@/lib/utils';
 
 type Stage =
-  | { kind: 'welcome' }
-  | { kind: 'mode_picker'; dream: string }
+  | { kind: 'mode_picker' }
+  | { kind: 'dream_entry'; mode: CoachMode }
   // Quick branch
   | { kind: 'loading_questions'; dream: string }
   | {
@@ -108,7 +109,7 @@ export default function CoachScreen() {
   const insets = useSafeAreaInsets();
   const recorder = useCoachRecorder();
 
-  const [stage, setStage] = React.useState<Stage>({ kind: 'welcome' });
+  const [stage, setStage] = React.useState<Stage>({ kind: 'mode_picker' });
   const [selections, setSelections] = React.useState<Record<string, boolean>>({});
   const [transcribing, setTranscribing] = React.useState(false);
   const [applying, setApplying] = React.useState(false);
@@ -120,8 +121,8 @@ export default function CoachScreen() {
 
   const currentPhase: CoachPhase | null = React.useMemo(() => {
     switch (stage.kind) {
-      case 'welcome':
       case 'mode_picker':
+      case 'dream_entry':
         return null;
       case 'loading_questions':
         return 'dream';
@@ -168,15 +169,15 @@ export default function CoachScreen() {
 
   // ---- Stage transitions ----------------------------------------------------
 
-  function startFromDream(dream: string) {
-    const trimmed = dream.trim();
-    if (!trimmed) return;
-    setStage({ kind: 'mode_picker', dream: trimmed });
+  function pickMode(mode: CoachMode) {
+    setStage({ kind: 'dream_entry', mode });
   }
 
-  async function pickMode(mode: CoachMode) {
-    if (stage.kind !== 'mode_picker') return;
-    const dream = stage.dream;
+  async function startFromDream(rawDream: string) {
+    if (stage.kind !== 'dream_entry') return;
+    const dream = rawDream.trim();
+    if (!dream) return;
+    const mode = stage.mode;
     if (mode === 'quick') {
       setStage({ kind: 'loading_questions', dream });
       try {
@@ -185,10 +186,9 @@ export default function CoachScreen() {
         setStage({ kind: 'script', stepIndex: 0, dream, steps: script.steps, answers: {} });
       } catch (e) {
         Alert.alert('Coach error', formatError(e));
-        setStage({ kind: 'mode_picker', dream });
+        setStage({ kind: 'dream_entry', mode });
       }
     } else {
-      // Deep: kick off turn 1
       setStage({ kind: 'loading_discover', dream, turn: 1, history: [] });
       try {
         const res = await askDiscover({
@@ -211,7 +211,7 @@ export default function CoachScreen() {
         }
       } catch (e) {
         Alert.alert('Coach error', formatError(e));
-        setStage({ kind: 'mode_picker', dream });
+        setStage({ kind: 'dream_entry', mode });
       }
     }
   }
@@ -328,7 +328,7 @@ export default function CoachScreen() {
     const t = text.trim();
     if (!t) return;
     setTextInput('');
-    if (stage.kind === 'welcome') startFromDream(t);
+    if (stage.kind === 'dream_entry') startFromDream(t);
     else if (stage.kind === 'script') answerScriptStep(t);
     else if (stage.kind === 'discover') answerDiscover(t);
     // mode_picker / loading / plan: ignored.
@@ -401,8 +401,8 @@ export default function CoachScreen() {
   const showInput =
     stage.kind !== 'plan' && stage.kind !== 'mode_picker' && !isLoading;
   const placeholder =
-    stage.kind === 'welcome'
-      ? 'Type or hold the mic'
+    stage.kind === 'dream_entry'
+      ? 'Tell me a dream — type or hold the mic'
       : stage.kind === 'discover'
         ? 'Take your time — speak or type'
         : 'Or type / speak your own';
@@ -428,13 +428,15 @@ export default function CoachScreen() {
         contentContainerStyle={{
           flexGrow: 1,
           justifyContent:
-            stage.kind === 'welcome' || stage.kind === 'mode_picker' ? 'center' : 'flex-start',
+            stage.kind === 'mode_picker' || stage.kind === 'dream_entry'
+              ? 'center'
+              : 'flex-start',
         }}
         keyboardShouldPersistTaps="handled">
-        {stage.kind === 'welcome' ? (
-          <Welcome onPick={startFromDream} />
-        ) : stage.kind === 'mode_picker' ? (
-          <ModePicker dream={stage.dream} onPick={pickMode} />
+        {stage.kind === 'mode_picker' ? (
+          <ModePicker onPick={pickMode} />
+        ) : stage.kind === 'dream_entry' ? (
+          <DreamEntry mode={stage.mode} onPick={startFromDream} />
         ) : stage.kind === 'loading_questions' || stage.kind === 'loading_discover' ? (
           <View className="pt-6">
             <CoachThinking />
@@ -493,24 +495,32 @@ export default function CoachScreen() {
               className="flex-1 rounded-2xl border border-border bg-card px-4 py-3 text-base text-foreground"
               style={{ maxHeight: 120 }}
             />
-            <Pressable
-              onPress={handleMicPress}
-              disabled={transcribing}
-              className={cn(
-                'size-12 items-center justify-center rounded-full',
-                recorder.isRecording ? 'bg-red-500' : 'bg-primary',
-                transcribing && 'opacity-50'
-              )}>
-              {transcribing ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Icon
-                  as={recorder.isRecording ? StopCircleIcon : MicIcon}
-                  size={22}
-                  className="text-white"
-                />
-              )}
-            </Pressable>
+            {textInput.trim().length > 0 && !recorder.isRecording ? (
+              <Pressable
+                onPress={() => submitText(textInput)}
+                className="size-12 items-center justify-center rounded-full bg-primary active:opacity-80">
+                <Icon as={ArrowUpIcon} size={22} className="text-white" />
+              </Pressable>
+            ) : (
+              <Pressable
+                onPress={handleMicPress}
+                disabled={transcribing}
+                className={cn(
+                  'size-12 items-center justify-center rounded-full',
+                  recorder.isRecording ? 'bg-red-500' : 'bg-primary',
+                  transcribing && 'opacity-50'
+                )}>
+                {transcribing ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Icon
+                    as={recorder.isRecording ? StopCircleIcon : MicIcon}
+                    size={22}
+                    className="text-white"
+                  />
+                )}
+              </Pressable>
+            )}
           </View>
         ) : null}
       </View>
@@ -522,24 +532,17 @@ export default function CoachScreen() {
 // Welcome
 // ============================================================================
 
-function ModePicker({
-  dream,
-  onPick,
-}: {
-  dream: string;
-  onPick: (m: CoachMode) => void;
-}) {
+function ModePicker({ onPick }: { onPick: (m: CoachMode) => void }) {
   return (
     <View className="gap-4">
-      <View className="items-center gap-1">
-        <Text variant="muted" className="text-center text-xs uppercase tracking-wide">
-          Your dream
+      <View className="items-center gap-3">
+        <View className="size-14 items-center justify-center rounded-full bg-violet-500/15">
+          <Icon as={SparklesIcon} size={28} className="text-violet-500" />
+        </View>
+        <Text variant="h3" className="text-center">
+          How deep should we go?
         </Text>
-        <Text className="text-center text-base">"{dream}"</Text>
       </View>
-      <Text variant="h3" className="text-center">
-        How deep should we go?
-      </Text>
       <View className="gap-3">
         <Pressable
           onPress={() => onPick('quick')}
@@ -563,7 +566,13 @@ function ModePicker({
   );
 }
 
-function Welcome({ onPick }: { onPick: (text: string) => void }) {
+function DreamEntry({
+  mode,
+  onPick,
+}: {
+  mode: CoachMode;
+  onPick: (text: string) => void;
+}) {
   return (
     <View className="items-center gap-3">
       <View className="size-14 items-center justify-center rounded-full bg-violet-500/15">
@@ -573,7 +582,9 @@ function Welcome({ onPick }: { onPick: (text: string) => void }) {
         Tell me a dream
       </Text>
       <Text variant="muted" className="text-center text-sm">
-        I'll guide you through a few quick questions, then we'll build your plan together.
+        {mode === 'deep'
+          ? "I'll ask 5 thoughtful questions, then we'll build your plan together."
+          : "I'll ask a few quick questions, then we'll build your plan together."}
       </Text>
       <View className="mt-3 w-full gap-2">
         {WELCOME_SUGGESTIONS.map((s) => (
