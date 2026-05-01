@@ -67,6 +67,8 @@ type Stage =
       history: DiscoverTurn[]; // answered Q+A pairs so far
       currentQuestion: string;
       currentPhase: CoachPhase;
+      currentSuggestions: string[];
+      currentHint: string;
     }
   | {
       kind: 'loading_discover';
@@ -207,6 +209,8 @@ export default function CoachScreen() {
             history: [],
             currentQuestion: res.questions[0] ?? 'What does success look like for you?',
             currentPhase: res.phase ?? 'dream',
+            currentSuggestions: res.suggestions ?? [],
+            currentHint: res.inputHint ?? '',
           });
         }
       } catch (e) {
@@ -248,6 +252,8 @@ export default function CoachScreen() {
           history: nextHistory,
           currentQuestion: res.questions[0] ?? 'Tell me more about that.',
           currentPhase: res.phase ?? 'current_state',
+          currentSuggestions: res.suggestions ?? [],
+          currentHint: res.inputHint ?? '',
         });
       }
     } catch (e) {
@@ -260,6 +266,8 @@ export default function CoachScreen() {
         history: stage.history,
         currentQuestion: stage.currentQuestion,
         currentPhase: stage.currentPhase,
+        currentSuggestions: stage.currentSuggestions,
+        currentHint: stage.currentHint,
       });
     }
   }
@@ -404,8 +412,10 @@ export default function CoachScreen() {
     stage.kind === 'dream_entry'
       ? 'Tell me a dream — type or hold the mic'
       : stage.kind === 'discover'
-        ? 'Take your time — speak or type'
-        : 'Or type / speak your own';
+        ? stage.currentHint || 'Take your time — speak or type'
+        : stage.kind === 'script'
+          ? stage.steps[stage.stepIndex]?.inputHint || 'Or type / speak your own'
+          : 'Or type / speak your own';
 
   return (
     <View className="flex-1 bg-background">
@@ -449,7 +459,12 @@ export default function CoachScreen() {
             onPickSuggestion={answerScriptStep}
           />
         ) : stage.kind === 'discover' ? (
-          <WizardStep ack="" question={stage.currentQuestion} suggestions={[]} onPickSuggestion={() => {}} />
+          <WizardStep
+            ack=""
+            question={stage.currentQuestion}
+            suggestions={stage.currentSuggestions}
+            onPickSuggestion={answerDiscover}
+          />
         ) : stage.kind === 'loading_plan' ? (
           <View className="pt-6">
             <CoachThinking />

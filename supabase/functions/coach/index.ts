@@ -99,6 +99,7 @@ const PLAN_RESPONSE_SCHEMA = {
       },
     },
     suggestions: { type: 'array', items: { type: 'string' } },
+    inputHint: { type: 'string' },
     phase: {
       type: 'string',
       enum: ['dream', 'current_state', 'constraints', 'strategy', 'drill_in', 'ready'],
@@ -109,6 +110,7 @@ const PLAN_RESPONSE_SCHEMA = {
     'message',
     'questions',
     'suggestions',
+    'inputHint',
     'phase',
     'goals',
     'milestones',
@@ -136,8 +138,9 @@ const QUESTIONS_RESPONSE_SCHEMA = {
           },
           question: { type: 'string' },
           suggestions: { type: 'array', items: { type: 'string' } },
+          inputHint: { type: 'string' },
         },
-        required: ['id', 'phase', 'question', 'suggestions'],
+        required: ['id', 'phase', 'question', 'suggestions', 'inputHint'],
       },
     },
   },
@@ -189,7 +192,8 @@ Each step in the output:
 - "id": short snake_case stable key (e.g. "current_level", "why", "hours_per_week", "time_of_day"). Unique within the array.
 - "phase": one of "dream" | "current_state" | "constraints" | "strategy" | "drill_in". Order the steps so phases appear in that order.
 - "question": the question text, ending in "?". Warm, conversational, <120 chars.
-- "suggestions": 3–5 likely-answer chips, each <40 chars. Calibrated to the question. NEVER yes/no, NEVER empty. For why-style questions use open-ended starters like "To prove I can to myself", "For my family", "To support my career", "Other — I'll say it".
+- "suggestions": 3–5 likely-answer chips, each <40 chars. Calibrated to the question. NEVER yes/no, NEVER empty. ALWAYS include a final "Other — I'll say it" chip. For why-style questions use open-ended starters like "To prove I can to myself", "For my family", "To support my career", "Other — I'll say it".
+- "inputHint": placeholder for the text input below the chips, <60 chars. e.g. "Tap a chip or type your own".
 
 "message": ONE warm sentence (the user sees this once at the start of the flow).
 
@@ -209,7 +213,11 @@ The flow is FIXED: 5 question turns, then 1 plan turn. You MUST output kind="pla
 
 Output for turns 1–5 (kind="questions"):
 - "questions": ARRAY OF EXACTLY ONE element. The next question, ending in "?". <120 chars. NEVER more than one. NEVER empty.
-- "suggestions": EMPTY ARRAY []. Deep mode never uses chips. The user is meant to write or speak a thoughtful answer.
+- "suggestions": chips. RULE:
+  - For PREFERENCE/CHOICE questions (style of learning, type of activity, time-of-day window, format preferences, level/intensity), provide 3–5 chips, each <40 chars, calibrated to the dream. ALWAYS include a final "Other — I'll say it" chip so the user can type their own answer.
+  - For WHY / CONCRETENESS / open reflection questions (motivation, what success feels like, what specific thing they want, what's hard), set suggestions=[]. These need depth from typing/speaking.
+  - When in doubt, prefer chips — most users find a blank input intimidating. Reserve free-text for the questions where chips would limit the depth we want.
+- "inputHint": placeholder text for the input box, <60 chars. Always provided. For free-text questions: a short example or starter, e.g. "e.g. 'I want to feel proud when I visit Rome'". For chip questions: a brief "Tap a chip or type your own".
 - "message": ONE warm sentence acknowledging the previous answer (or, on turn 1, framing the conversation).
 - "phase": advisory; pick one of "dream"/"current_state"/"constraints"/"strategy"/"drill_in" that best fits.
 - All array fields (goals/milestones/projects/todos/habits): empty.
@@ -245,7 +253,7 @@ Output kind="plan" with phase: "ready":
 - Project titles must name an EXTERNAL deliverable (a program name, a song, a number, a date, a URL). Placeholder noun phrases like "the online fitness program", "a workout routine", "my Spanish practice" are NOT acceptable — if the user didn't name the specific thing, ask in DISCOVER mode or pick a habit instead of a project.
 - HABIT vs TASK overlap: if a habit already covers the recurring practice, do NOT also emit setup tasks like "Create a daily schedule", "Set up a routine", "Plan your week", "Block time on calendar" — the habit IS the schedule. The only setup tasks allowed are one-shot prerequisites (sign up for the program, buy the equipment, book the first session).
 - "message": 1–2 warm sentences mentioning the chosen path or key habit. In the user's apparent language.
-- For plan turns: set questions=[] and suggestions=[]. Schema requires every property; use "" or [] for unused fields.
+- For plan turns: set questions=[], suggestions=[], inputHint="". Schema requires every property; use "" or [] for unused fields.
 
 Reusing existing items: if "context" lists a goal/milestone/project that already matches the user's intent, set goalRef/milestoneRef/projectRef to its real id (not a tempId). New items keep tempIds like g1, m1, p1, t1, h1.
 

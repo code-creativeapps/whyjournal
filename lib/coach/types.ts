@@ -18,6 +18,7 @@ export type GeneratedStep = {
   phase: CoachPhase;
   question: string;
   suggestions: string[];
+  inputHint: string;
 };
 
 export type GeneratedScript = {
@@ -79,6 +80,7 @@ export type CoachQuestionsResponse = {
   message: string;
   questions: string[];
   suggestions: string[];
+  inputHint: string;
   phase: CoachPhase;
 };
 
@@ -87,6 +89,7 @@ export type CoachPlanResponse = {
   message: string;
   phase: CoachPhase;
   suggestions: string[];
+  inputHint: string;
   goals: PlannedGoal[];
   milestones: PlannedMilestone[];
   projects: PlannedProject[];
