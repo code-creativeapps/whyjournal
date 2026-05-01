@@ -412,7 +412,9 @@ export default function CoachScreen() {
     stage.kind === 'dream_entry'
       ? 'Tell me a dream — type or hold the mic'
       : stage.kind === 'discover'
-        ? stage.currentHint || 'Take your time — speak or type'
+        ? stage.currentSuggestions.length > 0
+          ? stage.currentHint || 'Tap a chip or type your own'
+          : stage.currentHint || 'Take your time — speak or type'
         : stage.kind === 'script'
           ? stage.steps[stage.stepIndex]?.inputHint || 'Or type / speak your own'
           : 'Or type / speak your own';

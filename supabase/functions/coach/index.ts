@@ -214,7 +214,8 @@ The flow is FIXED: 5 question turns, then 1 plan turn. You MUST output kind="pla
 Output for turns 1–5 (kind="questions"):
 - "questions": ARRAY OF EXACTLY ONE element. The next question, ending in "?". <120 chars. NEVER more than one. NEVER empty.
 - "suggestions": chips. RULE:
-  - For PREFERENCE/CHOICE questions (style of learning, type of activity, time-of-day window, format preferences, level/intensity), provide 3–5 chips, each <40 chars, calibrated to the dream. ALWAYS include a final "Other — I'll say it" chip so the user can type their own answer.
+  - For PREFERENCE/CHOICE questions (style of learning, type of activity, time-of-day window, format preferences, level/intensity, frequency, scope), you MUST provide 3–5 chips, each <40 chars, calibrated to the dream. ALWAYS include a final "Other — I'll say it" chip.
+  - HARD CONSTRAINT: if your question text would naturally end with a parenthetical list of options (e.g. "(basic, conversational, fluent)?", "(morning/evening?)", "(running, cycling, swimming?)"), you are looking at a choice question — those options MUST be chips, NOT inlined in the question text. Strip them from the question; put them in suggestions.
   - For WHY / CONCRETENESS / open reflection questions (motivation, what success feels like, what specific thing they want, what's hard), set suggestions=[]. These need depth from typing/speaking.
   - When in doubt, prefer chips — most users find a blank input intimidating. Reserve free-text for the questions where chips would limit the depth we want.
 - "inputHint": placeholder text for the input box, <60 chars. Always provided. For free-text questions: a short example or starter, e.g. "e.g. 'I want to feel proud when I visit Rome'". For chip questions: a brief "Tap a chip or type your own".
