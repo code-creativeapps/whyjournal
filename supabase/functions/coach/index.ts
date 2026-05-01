@@ -219,7 +219,8 @@ Pick the 5 most useful questions for THIS specific dream. Don't waste a turn —
 Coverage requirements across the 5 turns:
 - Exactly ONE WHY question — surface the user's underlying motivation. Examples: "Why does this matter to you?", "What changes in your life when you achieve it?". Non-negotiable.
 - Exactly ONE CONCRETENESS question — force the user to name a specific deliverable, artifact, song, deadline, milestone, or measurable outcome. Examples: "Name one specific song you want to be able to play in 30 days.", "What's the first chapter you'd ship?", "What level / score / weight would you call 'done'?". This is what lets the plan have concrete tasks instead of vague advice.
-- Cover at least: motivation (WHY), a concrete deliverable (CONCRETENESS), current state, constraints, and a strategy/leverage question. Adapt the order to what the conversation reveals.
+- Cover at least: motivation (WHY), a concrete deliverable (CONCRETENESS), current state, available time/cadence, and constraints/blockers. Adapt the order to what the conversation reveals.
+- DO NOT ask "What methods/resources/tools will you use?" or "How will you approach this?". Strategy-picking is YOUR job in the plan, not the user's job in discovery — most users don't know and will say "I don't know, maybe X or Y". Use that turn for something else (e.g. a slot/time-of-day question, or a deeper concreteness question).
 - Don't repeat questions you already have answers to (read the history).
 
 On turn 6 (when you receive "Final plan"), output kind="plan" following PLAN MODE rules below, grounded in the dream + the 5 history answers.
@@ -234,7 +235,7 @@ Output kind="plan" with phase: "ready":
 - ONE goal (or reuse from context). targetDate matches the user's "when"-like answer when possible. why = user's "why"-like answer (verbatim or lightly cleaned).
 - 0–3 milestones (real progress markers, only if useful).
 - 0–3 projects. For OUTCOME goals, ONE main project whose TITLE names a concrete deliverable (see Project rule above) + 3–5 today-sized tasks under it. For IDENTITY goals, 0 projects unless the user named a sub-deliverable. If you can't name the deliverable, do not create a project — use a habit instead.
-- 0–3 habits. If the dream involves recurring practice (reading, training, writing, studying, exercising, language, meditation, journaling), include AT LEAST ONE habit with cadence aligned to the user's stated hours/time-of-day. (e.g. user said "Mornings, 5–10h, Day job" → "Practice 30 min on weekday mornings", not "Practice daily".)
+- 0–3 habits. If the dream involves recurring practice (reading, training, writing, studying, exercising, language, meditation, journaling), include AT LEAST ONE habit with cadence aligned to the user's stated hours/time-of-day. Habit titles MUST encode the WHEN (slot/time-of-day) AND the WHAT (specific method/lesson/page/distance). Bad: "Practice Italian basics", "Daily fitness practice", "Read every day". Good: "Pimsleur Lesson (30 min) Sun morning", "20-min run on weekday mornings", "Read 10 pages before bed". Banned habit titles: any starting with the bare word "Practice", "Train", "Study", "Work on" without a specific method or slot. Pick a concrete method on the user's behalf if they said "I don't know" — that's your job.
 - todos: today-sized only. If a starter task doesn't belong to any project, set projectRef="" (the app handles standalone tasks). Do NOT invent fake projectRefs.
 - Test every project with: "Could I write 'Done' on this and have it stay done?" If no, it's a habit.
 - Test every task with: "What artifact / observable check confirms this is done?" If you can't answer, rewrite or drop it. Banned task verbs as the leading word: "Spend", "Learn", "Practice", "Explore", "Look", "Get familiar", "Read about", "Think about", "Immerse", "Dive", "Evaluate", "Adjust", "Review", "Assess", "Optimize", "Maintain", "Monitor", "Refine", "Improve". Ground every task in something specific the user mentioned (a song they named, a tool they use, a person they mentioned).
@@ -286,22 +287,24 @@ function renderDiscoverHistory(history: any[]): string {
 async function callModel(mode: 'questions' | 'discover' | 'plan', payload: any): Promise<any> {
   const context = payload.context ?? [];
   const contextSummary = context.length === 0 ? 'No existing items.' : JSON.stringify(context);
+  const today = new Date().toISOString().slice(0, 10);
+  const dateLine = `Today: ${today}. All targetDates MUST be in the future relative to this date.`;
 
   let userMsg: string;
   if (mode === 'questions') {
-    userMsg = `MODE: QUESTIONS\n\nDream: "${payload.dream ?? ''}"\n\n# Existing items\n${contextSummary}\n\nGenerate the discovery checklist (3–5 tailored questions) for this dream now.`;
+    userMsg = `MODE: QUESTIONS\n${dateLine}\n\nDream: "${payload.dream ?? ''}"\n\n# Existing items\n${contextSummary}\n\nGenerate the discovery checklist (3–5 tailored questions) for this dream now.`;
   } else if (mode === 'discover') {
     const turn = payload.turn ?? 1;
     const total = payload.totalQuestionTurns ?? 5;
     const history = renderDiscoverHistory(payload.history ?? []);
     if (turn > total) {
-      userMsg = `MODE: DISCOVER\nDream: "${payload.dream ?? ''}"\n\n# Answers so far\n${history}\n\n# Existing items\n${contextSummary}\n\nFinal plan. Output kind="plan" now, grounded in the ${total} answers above.`;
+      userMsg = `MODE: DISCOVER\n${dateLine}\nDream: "${payload.dream ?? ''}"\n\n# Answers so far\n${history}\n\n# Existing items\n${contextSummary}\n\nFinal plan. Output kind="plan" now, grounded in the ${total} answers above.`;
     } else {
-      userMsg = `MODE: DISCOVER\nDream: "${payload.dream ?? ''}"\nTurn ${turn} of ${total}.\n\n# Answers so far\n${history}\n\n# Existing items\n${contextSummary}\n\nReturn the next single question (kind="questions", suggestions=[]).`;
+      userMsg = `MODE: DISCOVER\n${dateLine}\nDream: "${payload.dream ?? ''}"\nTurn ${turn} of ${total}.\n\n# Answers so far\n${history}\n\n# Existing items\n${contextSummary}\n\nReturn the next single question (kind="questions", suggestions=[]).`;
     }
   } else {
     const profile = renderProfile(payload);
-    userMsg = `MODE: PLAN\n\n# User profile\n${profile}\n\n# Existing items\n${contextSummary}\n\nProduce the final plan grounded in this profile.`;
+    userMsg = `MODE: PLAN\n${dateLine}\n\n# User profile\n${profile}\n\n# Existing items\n${contextSummary}\n\nProduce the final plan grounded in this profile.`;
   }
 
   const schema = mode === 'questions' ? QUESTIONS_RESPONSE_SCHEMA : PLAN_RESPONSE_SCHEMA;
