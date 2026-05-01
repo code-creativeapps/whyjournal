@@ -12,10 +12,40 @@ import type { Habit, HabitCompletion } from './types';
 
 const DAY_FORMAT = 'yyyy-MM-dd';
 
-/** True when a daily habit is scheduled for today (or always for weekly habits). */
+/**
+ * True when the habit is scheduled for today.
+ *
+ * - daily: every day (kept compatible with legacy rows that stored a subset).
+ * - weekly: if `daysOfWeek` lists specific days, scheduled on those; otherwise
+ *   "any day this week" (returns true).
+ */
 export function appliesToday(habit: Habit, now: Date = new Date()): boolean {
-  if (habit.frequencyKind === 'weekly') return true;
+  if (habit.frequencyKind === 'daily') {
+    if (habit.daysOfWeek.length === 0) return true;
+    return habit.daysOfWeek.includes(now.getDay());
+  }
+  if (habit.daysOfWeek.length === 0 || habit.daysOfWeek.length === 7) return true;
   return habit.daysOfWeek.includes(now.getDay());
+}
+
+/**
+ * Day-of-week indexes (0=Sun..6=Sat) the habit is scheduled for between
+ * tomorrow and the end of this calendar week (Sunday). Empty if the habit is
+ * already due today only or doesn't recur on specific days.
+ */
+export function upcomingDaysThisWeek(habit: Habit, now: Date = new Date()): number[] {
+  const today = now.getDay();
+  const days: number[] = [];
+  // Walk forward through the remaining days of the week (Mon-start week).
+  // We care about the next 6 days max.
+  for (let offset = 1; offset <= 6; offset++) {
+    const next = (today + offset) % 7;
+    // Stop once we wrap past Sunday (end of ISO week with Mon-start).
+    // We treat "this week" as the next 6 days regardless of week start to
+    // keep the section meaningful regardless of weekday today is.
+    if (habit.daysOfWeek.includes(next)) days.push(next);
+  }
+  return days;
 }
 
 function isInDay(iso: string, day: Date): boolean {

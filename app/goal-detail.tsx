@@ -989,13 +989,12 @@ function AttachHabitSheet({
 function describeHabitFrequency(h: Habit): string {
   const times =
     h.timesPerPeriod === 1 ? '' : ` · ${h.timesPerPeriod}× per ${h.frequencyKind === 'daily' ? 'day' : 'week'}`;
-  if (h.frequencyKind === 'weekly') return `Weekly${times}`;
-  if (h.daysOfWeek.length === 7) return `Daily${times}`;
   const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const days = h.daysOfWeek
-    .slice()
-    .sort((a, b) => a - b)
-    .map((d) => labels[d])
-    .join(', ');
-  return `${days}${times}`;
+  const days = h.daysOfWeek ?? [];
+  const everyDay = days.length === 0 || days.length === 7;
+  if (h.frequencyKind === 'daily') {
+    return `${everyDay ? 'Daily' : days.slice().sort((a, b) => a - b).map((d) => labels[d]).join(', ')}${times}`;
+  }
+  if (everyDay) return `Weekly${times}`;
+  return `${days.slice().sort((a, b) => a - b).map((d) => labels[d]).join(', ')}${times}`;
 }

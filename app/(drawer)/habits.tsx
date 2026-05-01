@@ -15,6 +15,7 @@ import {
   currentStreak,
   last7Days,
   progressForToday,
+  upcomingDaysThisWeek,
 } from '@/lib/habits/frequency';
 import type { Habit, HabitCompletion } from '@/lib/habits/types';
 import { useHabitCompletionsStore } from '@/lib/stores/habit-completions';
@@ -107,7 +108,12 @@ function TodayList({
   paddingBottom: number;
 }) {
   const sections = React.useMemo<Section[]>(() => {
-    const today = habits.filter((h) => appliesToday(h));
+    const today: Habit[] = [];
+    const later: Habit[] = [];
+    for (const h of habits) {
+      if (appliesToday(h)) today.push(h);
+      else if (upcomingDaysThisWeek(h).length > 0) later.push(h);
+    }
     const byRoutine = new Map<string | null, Habit[]>();
     for (const h of today) {
       const key = h.routineId ?? null;
@@ -124,6 +130,7 @@ function TodayList({
     if (other?.length) {
       out.push({ title: routines.length > 0 ? 'Other' : '', data: other });
     }
+    if (later.length > 0) out.push({ title: 'Later this week', data: later });
     return out;
   }, [habits, routines]);
 
@@ -172,6 +179,8 @@ function TodayList({
   );
 }
 
+const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 function HabitTodayRow({
   habit,
   completions,
@@ -181,8 +190,10 @@ function HabitTodayRow({
   completions: HabitCompletion[];
   onIncrement: (h: Habit) => void;
 }) {
+  const today = appliesToday(habit);
   const { done, target, ratio } = progressForToday(habit, completions);
   const isDone = done >= target;
+  const upcoming = today ? [] : upcomingDaysThisWeek(habit);
 
   return (
     <Animated.View entering={FadeIn.duration(180)}>
@@ -195,28 +206,36 @@ function HabitTodayRow({
           </View>
           <View className="flex-1">
             <Text
-              className={cn('text-base', isDone && 'text-muted-foreground line-through')}
+              className={cn(
+                'text-base',
+                isDone && today && 'text-muted-foreground line-through',
+                !today && 'text-muted-foreground'
+              )}
               numberOfLines={1}>
               {habit.title}
             </Text>
             <Text variant="muted" className="text-xs">
-              {done} / {target} {habit.frequencyKind === 'weekly' ? 'this week' : 'today'}
+              {today
+                ? `${done} / ${target} ${habit.frequencyKind === 'weekly' ? 'this week' : 'today'}`
+                : `Next: ${upcoming.map((d) => DAY_SHORT[d]).join(', ')}`}
             </Text>
           </View>
-          {isDone ? (
-            <View className="size-9 items-center justify-center rounded-full bg-green-500/20">
-              <Icon as={CheckIcon} size={18} className="text-green-600" />
-            </View>
-          ) : (
-            <Pressable
-              onPress={() => onIncrement(habit)}
-              hitSlop={8}
-              className="size-9 items-center justify-center rounded-full bg-violet-500">
-              <Icon as={PlusIcon} size={18} className="text-white" />
-            </Pressable>
-          )}
+          {today ? (
+            isDone ? (
+              <View className="size-9 items-center justify-center rounded-full bg-green-500/20">
+                <Icon as={CheckIcon} size={18} className="text-green-600" />
+              </View>
+            ) : (
+              <Pressable
+                onPress={() => onIncrement(habit)}
+                hitSlop={8}
+                className="size-9 items-center justify-center rounded-full bg-violet-500">
+                <Icon as={PlusIcon} size={18} className="text-white" />
+              </Pressable>
+            )
+          ) : null}
         </View>
-        {target > 1 ? (
+        {today && target > 1 ? (
           <View className="mx-4 mb-2 h-1 overflow-hidden rounded-full bg-muted">
             <View
               className="h-full rounded-full bg-violet-500"

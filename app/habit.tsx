@@ -44,15 +44,29 @@ export default function HabitFormScreen() {
 
   const [title, setTitle] = React.useState(existing?.title ?? '');
   const [body, setBody] = React.useState(existing?.body ?? '');
-  const [frequencyKind, setFrequencyKind] = React.useState<FrequencyKind>(
-    existing?.frequencyKind ?? 'daily'
-  );
+  // Soft migration: a legacy row stored as `daily` with a subset of
+  // daysOfWeek (e.g. M/W/F) now belongs in weekly mode under the new
+  // semantics ("daily" = every day; "weekly" = pick the days).
+  const initialKind: FrequencyKind = (() => {
+    if (!existing) return 'daily';
+    if (
+      existing.frequencyKind === 'daily' &&
+      existing.daysOfWeek.length > 0 &&
+      existing.daysOfWeek.length < 7
+    ) {
+      return 'weekly';
+    }
+    return existing.frequencyKind;
+  })();
+  const [frequencyKind, setFrequencyKind] = React.useState<FrequencyKind>(initialKind);
   const [count, setCount] = React.useState<string>(
     String(existing?.timesPerPeriod ?? 1)
   );
-  const [daysOfWeek, setDaysOfWeek] = React.useState<number[]>(
-    existing?.daysOfWeek ?? [0, 1, 2, 3, 4, 5, 6]
-  );
+  const [daysOfWeek, setDaysOfWeek] = React.useState<number[]>(() => {
+    if (!existing) return [];
+    if (existing.frequencyKind === 'daily' && existing.daysOfWeek.length === 7) return [];
+    return existing.daysOfWeek;
+  });
   const [routineId, setRoutineId] = React.useState<string | undefined>(existing?.routineId);
   const [goalId, setGoalId] = React.useState<string | undefined>(
     existing?.goalId ?? prefillGoalId
@@ -94,7 +108,7 @@ export default function HabitFormScreen() {
       body: body.trim() || undefined,
       frequencyKind,
       timesPerPeriod: parsedCount,
-      daysOfWeek: frequencyKind === 'daily' ? daysOfWeek : [0, 1, 2, 3, 4, 5, 6],
+      daysOfWeek: frequencyKind === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : daysOfWeek,
       routineId: routineId,
       goalId: goalId,
     };
@@ -201,16 +215,21 @@ export default function HabitFormScreen() {
                   {frequencyKind === 'daily' ? 'time(s) per day' : 'time(s) per week'}
                 </Text>
               </View>
-              {frequencyKind === 'daily' ? (
-                <View className="flex-row gap-1.5">
-                  {DAY_LABELS.map((label, i) => (
-                    <DayChip
-                      key={i}
-                      label={label}
-                      active={daysOfWeek.includes(i)}
-                      onPress={() => toggleDay(i)}
-                    />
-                  ))}
+              {frequencyKind === 'weekly' ? (
+                <View className="gap-1.5">
+                  <Text variant="muted" className="text-xs">
+                    Specific days (optional)
+                  </Text>
+                  <View className="flex-row gap-1.5">
+                    {DAY_LABELS.map((label, i) => (
+                      <DayChip
+                        key={i}
+                        label={label}
+                        active={daysOfWeek.includes(i)}
+                        onPress={() => toggleDay(i)}
+                      />
+                    ))}
+                  </View>
                 </View>
               ) : null}
             </View>
