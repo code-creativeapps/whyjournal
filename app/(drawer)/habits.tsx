@@ -1,60 +1,117 @@
+import { format, isSameDay, startOfDay, startOfWeek, subWeeks } from 'date-fns';
 import { router } from 'expo-router';
-import { CheckIcon, FlameIcon, PlusIcon, RepeatIcon } from 'lucide-react-native';
+import { CheckIcon } from 'lucide-react-native';
 import * as React from 'react';
-import { FlatList, Pressable, SectionList, View } from 'react-native';
+import { FlatList, Pressable, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fab } from '@/components/fab';
-import { SwipeableRow } from '@/components/swipeable-row';
 import { SwipeableScreen } from '@/components/swipeable-screen';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import {
-  appliesToday,
-  currentStreak,
-  last7Days,
-  progressForToday,
-  upcomingDaysThisWeek,
-} from '@/lib/habits/frequency';
 import type { Habit, HabitCompletion } from '@/lib/habits/types';
 import { useHabitCompletionsStore } from '@/lib/stores/habit-completions';
 import { useHabitsStore } from '@/lib/stores/habits';
-import { useRoutinesStore } from '@/lib/stores/routines';
 import { cn } from '@/lib/utils';
 
-type Tab = 'today' | 'trends';
+const DAY_FORMAT = 'yyyy-MM-dd';
+const WEEK_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const MONTH_WEEKS = 5;
+
+type Tab = 'week' | 'month';
+
+function plannedKey(habitId: string, day: Date): string {
+  return `${habitId}|${format(day, DAY_FORMAT)}`;
+}
 
 export default function HabitsScreen() {
   const habits = useHabitsStore((s) => s.items);
   const hydrated = useHabitsStore((s) => s.hydrated);
-  const deleteHabit = useHabitsStore((s) => s.deleteItem);
-  const routines = useRoutinesStore((s) => s.items);
   const completions = useHabitCompletionsStore((s) => s.items);
   const addCompletion = useHabitCompletionsStore((s) => s.addCompletion);
+  const removeLatest = useHabitCompletionsStore((s) => s.removeLatest);
+  const removeOnDay = useHabitCompletionsStore((s) => s.removeOnDay);
 
-  const [tab, setTab] = React.useState<Tab>('today');
+  const [tab, setTab] = React.useState<Tab>('week');
+  const [planned, setPlanned] = React.useState<Set<string>>(new Set());
+
+  const togglePlanned = React.useCallback((habitId: string, day: Date) => {
+    setPlanned((prev) => {
+      const key = plannedKey(habitId, day);
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const clearPlanned = React.useCallback((habitId: string, day: Date) => {
+    setPlanned((prev) => {
+      const key = plannedKey(habitId, day);
+      if (!prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+  }, []);
+
+  const handleToggleDay = React.useCallback(
+    (habitId: string, day: Date, hit: boolean) => {
+      clearPlanned(habitId, day);
+      (hit
+        ? removeOnDay(habitId, day)
+        : addCompletion(habitId, isoForNoon(day))
+      ).catch(() => {});
+    },
+    [addCompletion, removeOnDay, clearPlanned]
+  );
+
   const insets = useSafeAreaInsets();
 
   return (
     <SwipeableScreen route="habits">
       <View className="flex-1">
         <SegmentedTab value={tab} onChange={setTab} />
-        <View key={tab} className="flex-1">
-          {tab === 'today' ? (
-            <TodayList
-              habits={habits}
-              routines={routines}
-              completions={completions}
-              onIncrement={(h) => addCompletion(h.id).catch(() => {})}
-              onDelete={(h) => deleteHabit(h.id).catch(() => {})}
-              hydrated={hydrated}
-              paddingBottom={insets.bottom + 96}
-            />
-          ) : (
-            <MockTrendsList paddingBottom={insets.bottom + 96} />
-          )}
-        </View>
+        {hydrated && habits.length === 0 ? (
+          <View className="flex-1 items-center justify-center gap-4 px-8">
+            <Text variant="h3" className="text-center">
+              Build a habit
+            </Text>
+            <Text variant="muted" className="text-center">
+              Add a habit you want to do every day or a few times a week. Tap today&apos;s circle each time you do it.
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            key={tab}
+            data={habits}
+            keyExtractor={(h) => h.id}
+            renderItem={({ item }) =>
+              tab === 'week' ? (
+                <HabitRowWeek
+                  habit={item}
+                  completions={completions}
+                  planned={planned}
+                  onIncrement={() => addCompletion(item.id).catch(() => {})}
+                  onDecrement={() => removeLatest(item.id).catch(() => {})}
+                  onToggleDay={(day, hit) => handleToggleDay(item.id, day, hit)}
+                  onLongPressDay={(day) => togglePlanned(item.id, day)}
+                />
+              ) : (
+                <HabitRowMonth
+                  habit={item}
+                  completions={completions}
+                  planned={planned}
+                  onToggleDay={(day, hit) => handleToggleDay(item.id, day, hit)}
+                  onLongPressDay={(day) => togglePlanned(item.id, day)}
+                />
+              )
+            }
+            ItemSeparatorComponent={() => <View className="h-px bg-border" />}
+            contentContainerStyle={{ paddingTop: 8, paddingBottom: insets.bottom + 96 }}
+          />
+        )}
         <Fab href="/habit" />
       </View>
     </SwipeableScreen>
@@ -64,7 +121,7 @@ export default function HabitsScreen() {
 function SegmentedTab({ value, onChange }: { value: Tab; onChange: (v: Tab) => void }) {
   return (
     <View className="mx-4 mt-3 flex-row rounded-full bg-muted p-1">
-      {(['today', 'trends'] as Tab[]).map((t) => {
+      {(['week', 'month'] as Tab[]).map((t) => {
         const active = value === t;
         return (
           <Pressable
@@ -88,356 +145,280 @@ function SegmentedTab({ value, onChange }: { value: Tab; onChange: (v: Tab) => v
   );
 }
 
-type Section = { title: string; data: Habit[] };
+function isoForNoon(day: Date): string {
+  const d = new Date(day);
+  d.setHours(12, 0, 0, 0);
+  return d.toISOString();
+}
 
-function TodayList({
-  habits,
-  routines,
-  completions,
-  onIncrement,
-  onDelete,
-  hydrated,
-  paddingBottom,
-}: {
-  habits: Habit[];
-  routines: { id: string; title: string }[];
-  completions: HabitCompletion[];
-  onIncrement: (h: Habit) => void;
-  onDelete: (h: Habit) => void;
-  hydrated: boolean;
-  paddingBottom: number;
-}) {
-  const sections = React.useMemo<Section[]>(() => {
-    const today: Habit[] = [];
-    const later: Habit[] = [];
-    for (const h of habits) {
-      if (appliesToday(h)) today.push(h);
-      else if (upcomingDaysThisWeek(h).length > 0) later.push(h);
-    }
-    const byRoutine = new Map<string | null, Habit[]>();
-    for (const h of today) {
-      const key = h.routineId ?? null;
-      const list = byRoutine.get(key) ?? [];
-      list.push(h);
-      byRoutine.set(key, list);
-    }
-    const out: Section[] = [];
-    for (const r of routines) {
-      const items = byRoutine.get(r.id);
-      if (items?.length) out.push({ title: r.title, data: items });
-    }
-    const other = byRoutine.get(null);
-    if (other?.length) {
-      out.push({ title: routines.length > 0 ? 'Other' : '', data: other });
-    }
-    if (later.length > 0) out.push({ title: 'Later this week', data: later });
-    return out;
-  }, [habits, routines]);
+function isMultiPerDay(habit: Habit): boolean {
+  return habit.frequencyKind === 'daily' && habit.timesPerPeriod > 1;
+}
 
-  if (hydrated && sections.length === 0) {
-    return (
-      <View className="flex-1 items-center justify-center gap-4 px-8">
-        <Text variant="h3" className="text-center">
-          Build a habit
-        </Text>
-        <Text variant="muted" className="text-center">
-          Add a habit you want to do every day or a few times a week. Tap + each time you do it.
-        </Text>
-      </View>
-    );
+function frequencyLabel(habit: Habit): string {
+  if (habit.frequencyKind === 'daily') {
+    if (habit.timesPerPeriod > 1) return `${habit.timesPerPeriod}× day`;
+    const days = habit.daysOfWeek;
+    if (days.length === 0 || days.length === 7) return 'Daily';
+    return `${days.length}× week`;
   }
+  return `${habit.timesPerPeriod}× week`;
+}
 
+function HabitHeader({ habit }: { habit: Habit }) {
   return (
-    <SectionList
-      sections={sections}
-      keyExtractor={(item) => item.id}
-      stickySectionHeadersEnabled={false}
-      renderSectionHeader={({ section }) =>
-        section.title ? (
-          <View className="bg-background px-4 pb-1 pt-4">
-            <Text variant="small" className="text-muted-foreground">
-              {section.title}
-            </Text>
-          </View>
-        ) : (
-          <View className="h-3" />
-        )
-      }
-      renderItem={({ item }) => (
-        <SwipeableRow
-          onEdit={() => router.push({ pathname: '/habit', params: { id: item.id } })}
-          onDelete={() => onDelete(item)}
-          deleteConfirmTitle="Delete habit"
-          deleteConfirmBody="Its completions will be removed too."
-        >
-          <HabitTodayRow habit={item} completions={completions} onIncrement={onIncrement} />
-        </SwipeableRow>
-      )}
-      ItemSeparatorComponent={() => <View className="h-px bg-border" />}
-      contentContainerStyle={{ paddingBottom }}
-    />
+    <View className="flex-row items-baseline justify-between gap-3">
+      <Text className="flex-1 text-base" numberOfLines={1}>
+        {habit.title}
+      </Text>
+      <Text variant="muted" className="text-xs">
+        {frequencyLabel(habit)}
+      </Text>
+    </View>
   );
 }
 
-const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+function useDayCounts(habit: Habit, completions: HabitCompletion[]) {
+  return React.useMemo(() => {
+    const map = new Map<string, number>();
+    for (const c of completions) {
+      if (c.habitId !== habit.id) continue;
+      const key = format(startOfDay(new Date(c.completedAt)), DAY_FORMAT);
+      map.set(key, (map.get(key) ?? 0) + 1);
+    }
+    return map;
+  }, [completions, habit.id]);
+}
 
-function HabitTodayRow({
+function dayHit(habit: Habit, count: number): boolean {
+  const target = habit.frequencyKind === 'daily' ? habit.timesPerPeriod : 1;
+  return count >= target;
+}
+
+function HabitRowWeek({
   habit,
   completions,
+  planned,
   onIncrement,
+  onDecrement,
+  onToggleDay,
+  onLongPressDay,
 }: {
   habit: Habit;
   completions: HabitCompletion[];
-  onIncrement: (h: Habit) => void;
+  planned: Set<string>;
+  onIncrement: () => void;
+  onDecrement: () => void;
+  onToggleDay: (day: Date, hit: boolean) => void;
+  onLongPressDay: (day: Date) => void;
 }) {
-  const today = appliesToday(habit);
-  const { done, target, ratio } = progressForToday(habit, completions);
-  const isDone = done >= target;
-  const upcoming = today ? [] : upcomingDaysThisWeek(habit);
-
   return (
     <Animated.View entering={FadeIn.duration(180)}>
       <Pressable
         onPress={() => router.push({ pathname: '/habit-detail', params: { id: habit.id } })}
-        className="active:bg-accent">
-        <View className="flex-row items-center gap-3 px-4 py-2">
-          <View className="size-6 items-center justify-center rounded-full bg-violet-500/15">
-            <Icon as={RepeatIcon} size={14} className="text-violet-500" />
-          </View>
-          <View className="flex-1">
-            <Text
-              className={cn(
-                'text-base',
-                isDone && today && 'text-muted-foreground line-through',
-                !today && 'text-muted-foreground'
-              )}
-              numberOfLines={1}>
-              {habit.title}
-            </Text>
-            <Text variant="muted" className="text-xs">
-              {today
-                ? `${done} / ${target} ${habit.frequencyKind === 'weekly' ? 'this week' : 'today'}`
-                : `Next: ${upcoming.map((d) => DAY_SHORT[d]).join(', ')}`}
-            </Text>
-          </View>
-          {today ? (
-            isDone ? (
-              <View className="size-9 items-center justify-center rounded-full bg-green-500/20">
-                <Icon as={CheckIcon} size={18} className="text-green-600" />
-              </View>
-            ) : (
-              <Pressable
-                onPress={() => onIncrement(habit)}
-                hitSlop={8}
-                className="size-9 items-center justify-center rounded-full bg-violet-500">
-                <Icon as={PlusIcon} size={18} className="text-white" />
-              </Pressable>
-            )
-          ) : null}
-        </View>
-        {today && target > 1 ? (
-          <View className="mx-4 mb-2 h-1 overflow-hidden rounded-full bg-muted">
-            <View
-              className="h-full rounded-full bg-violet-500"
-              style={{ width: `${Math.round(ratio * 100)}%` }}
+        className="px-4 py-3 active:bg-accent">
+        <HabitHeader habit={habit} />
+        <View className="mt-2">
+          {isMultiPerDay(habit) ? (
+            <SlotRow
+              habit={habit}
+              completions={completions}
+              onIncrement={onIncrement}
+              onDecrement={onDecrement}
             />
-          </View>
-        ) : null}
+          ) : (
+            <WeekRow
+              habit={habit}
+              completions={completions}
+              planned={planned}
+              onToggleDay={onToggleDay}
+              onLongPressDay={onLongPressDay}
+              showLabels
+            />
+          )}
+        </View>
       </Pressable>
     </Animated.View>
   );
 }
 
-// Real trends list — temporarily replaced by MockTrendsList to preview the
-// "after a few weeks of tracking" UX without needing real completion data.
-// Restore by swapping <MockTrendsList /> back to <TrendsList ... />.
-/*
-function TrendsList({
-  habits,
-  completions,
-  paddingBottom,
-}: {
-  habits: Habit[];
-  completions: HabitCompletion[];
-  paddingBottom: number;
-}) {
-  if (habits.length === 0) {
-    return (
-      <View className="flex-1 items-center justify-center gap-4 px-8">
-        <Text variant="muted" className="text-center">
-          Add a habit to start tracking trends.
-        </Text>
-      </View>
-    );
-  }
-  return (
-    <FlatList
-      data={habits}
-      keyExtractor={(h) => h.id}
-      renderItem={({ item }) => (
-        <TrendCard habit={item} completions={completions} />
-      )}
-      contentContainerStyle={{ paddingTop: 8, paddingBottom }}
-    />
-  );
-}
-
-function TrendCard({
+function HabitRowMonth({
   habit,
   completions,
+  planned,
+  onToggleDay,
+  onLongPressDay,
 }: {
   habit: Habit;
   completions: HabitCompletion[];
+  planned: Set<string>;
+  onToggleDay: (day: Date, hit: boolean) => void;
+  onLongPressDay: (day: Date) => void;
 }) {
-  const days = last7Days(habit, completions);
-  const streak = currentStreak(habit, completions);
+  const now = new Date();
+  const currentWeekStart = startOfWeek(now, { weekStartsOn: 1 });
+  const weeks = React.useMemo(() => {
+    // Oldest week on top, current week on the bottom.
+    const out: Date[] = [];
+    for (let i = MONTH_WEEKS - 1; i >= 0; i--) {
+      out.push(subWeeks(currentWeekStart, i));
+    }
+    return out;
+  }, [currentWeekStart]);
 
   return (
-    <Pressable
-      onPress={() => router.push({ pathname: '/habit-detail', params: { id: habit.id } })}
-      className="mx-3 my-1.5 rounded-2xl border border-border bg-background p-4 active:opacity-80">
-      <View className="flex-row items-start justify-between gap-2">
-        <Text className="flex-1 text-base font-semibold" numberOfLines={1}>
-          {habit.title}
-        </Text>
-        {streak > 0 ? (
-          <View className="flex-row items-center gap-1 rounded-full bg-orange-500/15 px-2 py-0.5">
-            <Icon as={FlameIcon} size={12} className="text-orange-500" />
-            <Text variant="small" className="text-xs font-semibold text-orange-600">
-              {streak}
-              {habit.frequencyKind === 'weekly' ? 'w' : 'd'}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-      <View className="mt-3 flex-row gap-1">
-        {days.map((d) => (
-          <View
-            key={d.date}
-            className={cn(
-              'h-7 flex-1 rounded',
-              d.hit ? 'bg-violet-500' : 'bg-muted'
-            )}
-          />
-        ))}
-      </View>
-    </Pressable>
-  );
-}
-*/
-
-type MockHabit = {
-  id: string;
-  title: string;
-  frequencyKind: 'daily' | 'weekly';
-  streak: number;
-  /** Last 7 days, oldest to newest. true = target hit that day. */
-  days: boolean[];
-  total: number;
-};
-
-const MOCK_HABITS: MockHabit[] = [
-  {
-    id: 'm1',
-    title: 'Drink 8 glasses of water',
-    frequencyKind: 'daily',
-    streak: 23,
-    days: [true, true, true, true, true, true, true],
-    total: 67,
-  },
-  {
-    id: 'm2',
-    title: 'Read 20 minutes',
-    frequencyKind: 'daily',
-    streak: 12,
-    days: [true, true, false, true, true, true, true],
-    total: 45,
-  },
-  {
-    id: 'm3',
-    title: 'Exercise',
-    frequencyKind: 'weekly',
-    streak: 5,
-    days: [true, false, true, false, true, false, true],
-    total: 22,
-  },
-  {
-    id: 'm4',
-    title: 'Meditate',
-    frequencyKind: 'daily',
-    streak: 7,
-    days: [false, true, true, true, true, true, true],
-    total: 31,
-  },
-  {
-    id: 'm5',
-    title: 'Journal',
-    frequencyKind: 'daily',
-    streak: 4,
-    days: [true, false, true, true, true, true, true],
-    total: 18,
-  },
-  {
-    id: 'm6',
-    title: 'Run 5k',
-    frequencyKind: 'weekly',
-    streak: 3,
-    days: [false, false, true, false, false, true, false],
-    total: 8,
-  },
-];
-
-function MockTrendsList({ paddingBottom }: { paddingBottom: number }) {
-  return (
-    <FlatList
-      data={MOCK_HABITS}
-      keyExtractor={(h) => h.id}
-      renderItem={({ item }) => <MockTrendCard habit={item} />}
-      ListHeaderComponent={
-        <Pressable
-          onPress={() => router.push('/habits-trends-lab')}
-          className="mx-3 mb-1 mt-1 flex-row items-center justify-center rounded-full border border-dashed border-border px-3 py-2 active:bg-accent">
-          <Text variant="muted" className="text-xs">
-            Try alternative views →
-          </Text>
-        </Pressable>
-      }
-      contentContainerStyle={{ paddingTop: 8, paddingBottom }}
-    />
+    <Animated.View entering={FadeIn.duration(180)}>
+      <Pressable
+        onPress={() => router.push({ pathname: '/habit-detail', params: { id: habit.id } })}
+        className="px-4 py-3 active:bg-accent">
+        <HabitHeader habit={habit} />
+        <View className="mt-2 gap-1.5">
+          {weeks.map((weekStart, idx) => (
+            <WeekRow
+              key={format(weekStart, DAY_FORMAT)}
+              habit={habit}
+              completions={completions}
+              planned={planned}
+              onToggleDay={onToggleDay}
+              onLongPressDay={onLongPressDay}
+              weekStart={weekStart}
+              showLabels={idx === weeks.length - 1}
+              compact
+            />
+          ))}
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }
 
-function MockTrendCard({ habit }: { habit: MockHabit }) {
+function WeekRow({
+  habit,
+  completions,
+  planned,
+  onToggleDay,
+  onLongPressDay,
+  weekStart,
+  showLabels = true,
+  compact = false,
+}: {
+  habit: Habit;
+  completions: HabitCompletion[];
+  planned: Set<string>;
+  onToggleDay: (day: Date, hit: boolean) => void;
+  onLongPressDay: (day: Date) => void;
+  weekStart?: Date;
+  showLabels?: boolean;
+  compact?: boolean;
+}) {
+  const now = new Date();
+  const start = weekStart ?? startOfWeek(now, { weekStartsOn: 1 });
+  const today = startOfDay(now);
+  const dayCounts = useDayCounts(habit, completions);
+
   return (
-    <View className="mx-3 my-1.5 rounded-2xl border border-border bg-background p-4">
-      <View className="flex-row items-start justify-between gap-2">
-        <Text className="flex-1 text-base font-semibold" numberOfLines={1}>
-          {habit.title}
-        </Text>
-        {habit.streak > 0 ? (
-          <View className="flex-row items-center gap-1 rounded-full bg-orange-500/15 px-2 py-0.5">
-            <Icon as={FlameIcon} size={12} className="text-orange-500" />
-            <Text variant="small" className="text-xs font-semibold text-orange-600">
-              {habit.streak}
-              {habit.frequencyKind === 'weekly' ? 'w' : 'd'}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-      <View className="mt-3 flex-row gap-1">
-        {habit.days.map((hit, i) => (
-          <View
+    <View className="flex-row gap-1.5">
+      {Array.from({ length: 7 }).map((_, i) => {
+        const day = new Date(start);
+        day.setDate(start.getDate() + i);
+        const key = format(day, DAY_FORMAT);
+        const count = dayCounts.get(key) ?? 0;
+        const hit = dayHit(habit, count);
+        const isToday = isSameDay(day, today);
+        const isFuture = day.getTime() > today.getTime();
+        const isPlanned = !hit && planned.has(plannedKey(habit.id, day));
+
+        return (
+          <Pressable
             key={i}
+            onPress={() => onToggleDay(day, hit)}
+            onLongPress={!hit ? () => onLongPressDay(day) : undefined}
+            delayLongPress={250}
+            hitSlop={4}
             className={cn(
-              'h-7 flex-1 rounded',
-              hit ? 'bg-violet-500' : 'bg-muted'
-            )}
-          />
-        ))}
-      </View>
-      <Text variant="muted" className="mt-2 text-xs">
-        {habit.total} total · {habit.frequencyKind === 'weekly' ? 'this week' : 'past 7 days'}
-      </Text>
+              'aspect-square flex-1 items-center justify-center rounded-full border-2',
+              hit
+                ? 'border-green-500 bg-green-500'
+                : isPlanned
+                  ? 'border-violet-500'
+                  : isFuture
+                    ? 'border-border'
+                    : 'border-muted-foreground/40'
+            )}>
+            {hit ? (
+              <Icon as={CheckIcon} size={compact ? 16 : 22} className="text-white" />
+            ) : showLabels ? (
+              <Text
+                className={cn(
+                  compact ? 'text-xs font-semibold' : 'text-sm font-semibold',
+                  isPlanned
+                    ? 'text-violet-500'
+                    : isToday
+                      ? 'text-foreground'
+                      : isFuture
+                        ? 'text-muted-foreground/50'
+                        : 'text-muted-foreground'
+                )}>
+                {WEEK_LABELS[i]}
+              </Text>
+            ) : null}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function SlotRow({
+  habit,
+  completions,
+  onIncrement,
+  onDecrement,
+}: {
+  habit: Habit;
+  completions: HabitCompletion[];
+  onIncrement: () => void;
+  onDecrement: () => void;
+}) {
+  const today = startOfDay(new Date());
+  const doneToday = completions.filter(
+    (c) => c.habitId === habit.id && isSameDay(new Date(c.completedAt), today)
+  ).length;
+  const target = habit.timesPerPeriod;
+
+  const cells = Math.max(target, 7);
+
+  return (
+    <View className="flex-row gap-1.5">
+      {Array.from({ length: cells }).map((_, i) => {
+        if (i >= target) return <View key={i} className="flex-1" />;
+        const filled = i < doneToday;
+        const isNextEmpty = i === doneToday;
+        const isLastFilled = filled && i === doneToday - 1;
+        const onPress = isNextEmpty
+          ? onIncrement
+          : isLastFilled
+            ? onDecrement
+            : undefined;
+
+        return (
+          <Pressable
+            key={i}
+            onPress={onPress}
+            disabled={!onPress}
+            hitSlop={4}
+            className={cn(
+              'aspect-square flex-1 items-center justify-center rounded-full border-2',
+              filled
+                ? 'border-green-500 bg-green-500'
+                : isNextEmpty
+                  ? 'border-violet-500'
+                  : 'border-muted-foreground/40'
+            )}>
+            {filled ? <Icon as={CheckIcon} size={22} className="text-white" /> : null}
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
