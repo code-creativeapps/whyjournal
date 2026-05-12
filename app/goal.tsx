@@ -4,7 +4,7 @@ import {
 } from '@gorhom/bottom-sheet';
 import { Image } from 'expo-image';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { ImagePlusIcon, Trash2Icon, XIcon } from 'lucide-react-native';
+import { ImagePlusIcon, InfoIcon, Trash2Icon, XIcon } from 'lucide-react-native';
 import * as React from 'react';
 import {
   Alert,
@@ -37,6 +37,14 @@ type ImageDraft = {
   source: 'upload' | 'pexels';
   attribution?: string;
 };
+
+const GOAL_EXAMPLES = [
+  'Run a sub-2h half marathon by Oct 2026',
+  'Read 12 books this year',
+  'Save €10,000 by December',
+  'Speak conversational Italian (B1) by next summer',
+  'Ship v1 of my side project by June',
+];
 
 export default function GoalFormScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -86,6 +94,7 @@ export default function GoalFormScreen() {
     Boolean(existing?.isCornerstone)
   );
   const iconPickerRef = React.useRef<BottomSheetModal>(null);
+  const [showTitleExamples, setShowTitleExamples] = React.useState(false);
   const [milestones, setMilestones] = React.useState<MilestoneDraft[]>(() =>
     initialMilestonesRef.current.map((m) => ({
       id: m.id,
@@ -275,15 +284,42 @@ export default function GoalFormScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1">
         <ScrollView contentContainerClassName="gap-5 px-4 pt-4 pb-10" keyboardShouldPersistTaps="handled">
-          <Field label="What do you want to achieve?" hint="Keep it concrete — name the outcome, not the activity.">
-            <Input
-              value={title}
-              onChangeText={setTitle}
-              placeholder="e.g. Run a half marathon"
-              autoFocus={!isEditing}
-              returnKeyType="next"
-            />
-          </Field>
+          <View className="gap-1.5">
+            <View className="flex-row items-center gap-1.5">
+              <Text className="text-sm font-semibold">What do you want to achieve?</Text>
+              <Pressable
+                onPress={() => setShowTitleExamples((s) => !s)}
+                hitSlop={8}
+                className="active:opacity-60">
+                <Icon as={InfoIcon} size={14} className="text-muted-foreground" />
+              </Pressable>
+            </View>
+            <Text variant="muted" className="text-xs">
+              Keep it concrete — name the outcome, not the activity.
+            </Text>
+            {showTitleExamples ? (
+              <View className="mt-1 gap-1.5 rounded-md border border-border bg-muted/30 px-3 py-2.5">
+                <Text className="text-xs font-semibold">Examples of good goals</Text>
+                {GOAL_EXAMPLES.map((ex) => (
+                  <Text key={ex} variant="muted" className="text-xs">
+                    • {ex}
+                  </Text>
+                ))}
+                <Text variant="muted" className="mt-1 text-xs italic">
+                  Strong goals name the outcome, the measure, and a deadline.
+                </Text>
+              </View>
+            ) : null}
+            <View className="mt-1">
+              <Input
+                value={title}
+                onChangeText={setTitle}
+                placeholder="e.g. Run a half marathon"
+                autoFocus={!isEditing}
+                returnKeyType="next"
+              />
+            </View>
+          </View>
 
           <Field label="Icon" hint="Optional — give this goal its own face.">
             <Pressable
