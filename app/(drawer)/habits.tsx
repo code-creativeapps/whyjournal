@@ -1,9 +1,9 @@
-import { format, isSameDay, startOfDay, startOfWeek, subWeeks } from 'date-fns';
+import { format, isSameDay, startOfDay, startOfWeek, subDays } from 'date-fns';
 import { router } from 'expo-router';
 import { CheckIcon } from 'lucide-react-native';
 import * as React from 'react';
-import { FlatList, Pressable, View } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import { FlatList, Pressable, View, type LayoutChangeEvent } from 'react-native';
+import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fab } from '@/components/fab';
@@ -16,14 +16,8 @@ import { useHabitsStore } from '@/lib/stores/habits';
 import { cn } from '@/lib/utils';
 
 const DAY_FORMAT = 'yyyy-MM-dd';
-const WEEK_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-const MONTH_WEEKS = 5;
 
-type Tab = 'week' | 'month';
-
-function plannedKey(habitId: string, day: Date): string {
-  return `${habitId}|${format(day, DAY_FORMAT)}`;
-}
+type Tab = 'daily' | 'weekly';
 
 export default function HabitsScreen() {
   const habits = useHabitsStore((s) => s.items);
@@ -33,38 +27,49 @@ export default function HabitsScreen() {
   const removeLatest = useHabitCompletionsStore((s) => s.removeLatest);
   const removeOnDay = useHabitCompletionsStore((s) => s.removeOnDay);
 
-  const [tab, setTab] = React.useState<Tab>('week');
-  const [planned, setPlanned] = React.useState<Set<string>>(new Set());
+  const [tab, setTab] = React.useState<Tab>('daily');
 
-  const togglePlanned = React.useCallback((habitId: string, day: Date) => {
-    setPlanned((prev) => {
-      const key = plannedKey(habitId, day);
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }, []);
+  const filtered = React.useMemo(
+    () =>
+      habits.filter((h) =>
+        tab === 'daily' ? h.frequencyKind === 'daily' : h.frequencyKind === 'weekly'
+      ),
+    [habits, tab]
+  );
 
-  const clearPlanned = React.useCallback((habitId: string, day: Date) => {
-    setPlanned((prev) => {
-      const key = plannedKey(habitId, day);
-      if (!prev.has(key)) return prev;
-      const next = new Set(prev);
-      next.delete(key);
-      return next;
-    });
-  }, []);
-
-  const handleToggleDay = React.useCallback(
-    (habitId: string, day: Date, hit: boolean) => {
-      clearPlanned(habitId, day);
-      (hit
-        ? removeOnDay(habitId, day)
-        : addCompletion(habitId, isoForNoon(day))
-      ).catch(() => {});
+  const handleTap = React.useCallback(
+    (habit: Habit) => {
+      if (habit.frequencyKind === 'daily') {
+        const today = startOfDay(new Date());
+        const doneToday = completions.some(
+          (c) => c.habitId === habit.id && isSameDay(new Date(c.completedAt), today)
+        );
+        if (doneToday) {
+          removeOnDay(habit.id, today).catch(() => {});
+        } else {
+          addCompletion(habit.id, isoForNoon(today)).catch(() => {});
+        }
+        return;
+      }
+      const count = countCompletionsThisWeek(habit, completions);
+      if (count >= habit.timesPerPeriod) {
+        removeLatest(habit.id).catch(() => {});
+        return;
+      }
+      addCompletion(habit.id).catch(() => {});
     },
-    [addCompletion, removeOnDay, clearPlanned]
+    [addCompletion, completions, removeLatest, removeOnDay]
+  );
+
+  const handleUndo = React.useCallback(
+    (habit: Habit) => {
+      if (habit.frequencyKind === 'daily') {
+        removeOnDay(habit.id, startOfDay(new Date())).catch(() => {});
+      } else {
+        removeLatest(habit.id).catch(() => {});
+      }
+    },
+    [removeLatest, removeOnDay]
   );
 
   const insets = useSafeAreaInsets();
@@ -79,37 +84,35 @@ export default function HabitsScreen() {
               Build a habit
             </Text>
             <Text variant="muted" className="text-center">
-              Add a habit you want to do every day or a few times a week. Tap today&apos;s circle each time you do it.
+              Add a habit you want to do every day or a few times a week. Tap the circle to
+              mark it done.
             </Text>
           </View>
         ) : (
           <FlatList
             key={tab}
-            data={habits}
+            data={filtered}
             keyExtractor={(h) => h.id}
-            renderItem={({ item }) =>
-              tab === 'week' ? (
-                <HabitRowWeek
-                  habit={item}
-                  completions={completions}
-                  planned={planned}
-                  onIncrement={() => addCompletion(item.id).catch(() => {})}
-                  onDecrement={() => removeLatest(item.id).catch(() => {})}
-                  onToggleDay={(day, hit) => handleToggleDay(item.id, day, hit)}
-                  onLongPressDay={(day) => togglePlanned(item.id, day)}
-                />
-              ) : (
-                <HabitRowMonth
-                  habit={item}
-                  completions={completions}
-                  planned={planned}
-                  onToggleDay={(day, hit) => handleToggleDay(item.id, day, hit)}
-                  onLongPressDay={(day) => togglePlanned(item.id, day)}
-                />
-              )
+            renderItem={({ item, index }) => (
+              <HabitRow
+                habit={item}
+                completions={completions}
+                onTap={() => handleTap(item)}
+                onLongPress={() => handleUndo(item)}
+                showTodayLabel={index === 0}
+              />
+            )}
+            ListEmptyComponent={
+              <View className="px-8 py-16">
+                <Text variant="muted" className="text-center">
+                  {tab === 'daily'
+                    ? 'No daily habits yet.'
+                    : 'No weekly habits yet.'}
+                </Text>
+              </View>
             }
             ItemSeparatorComponent={() => <View className="h-px bg-border" />}
-            contentContainerStyle={{ paddingTop: 8, paddingBottom: insets.bottom + 96 }}
+            contentContainerStyle={{ paddingTop: 12, paddingBottom: insets.bottom + 96 }}
           />
         )}
         <Fab href="/habit" />
@@ -121,22 +124,27 @@ export default function HabitsScreen() {
 function SegmentedTab({ value, onChange }: { value: Tab; onChange: (v: Tab) => void }) {
   return (
     <View className="mx-4 mt-3 flex-row rounded-full bg-muted p-1">
-      {(['week', 'month'] as Tab[]).map((t) => {
-        const active = value === t;
+      {(
+        [
+          { key: 'daily', label: 'Daily' },
+          { key: 'weekly', label: 'Weekly' },
+        ] as { key: Tab; label: string }[]
+      ).map((t) => {
+        const active = value === t.key;
         return (
           <Pressable
-            key={t}
-            onPress={() => onChange(t)}
+            key={t.key}
+            onPress={() => onChange(t.key)}
             className={cn(
               'flex-1 items-center rounded-full py-1.5',
               active && 'bg-background shadow-sm'
             )}>
             <Text
               className={cn(
-                'text-sm font-medium capitalize',
+                'text-sm font-medium',
                 active ? 'text-foreground' : 'text-muted-foreground'
               )}>
-              {t}
+              {t.label}
             </Text>
           </Pressable>
         );
@@ -151,33 +159,6 @@ function isoForNoon(day: Date): string {
   return d.toISOString();
 }
 
-function isMultiPerDay(habit: Habit): boolean {
-  return habit.frequencyKind === 'daily' && habit.timesPerPeriod > 1;
-}
-
-function frequencyLabel(habit: Habit): string {
-  if (habit.frequencyKind === 'daily') {
-    if (habit.timesPerPeriod > 1) return `${habit.timesPerPeriod}× day`;
-    const days = habit.daysOfWeek;
-    if (days.length === 0 || days.length === 7) return 'Daily';
-    return `${days.length}× week`;
-  }
-  return `${habit.timesPerPeriod}× week`;
-}
-
-function HabitHeader({ habit }: { habit: Habit }) {
-  return (
-    <View className="flex-row items-baseline justify-between gap-3">
-      <Text className="flex-1 text-base" numberOfLines={1}>
-        {habit.title}
-      </Text>
-      <Text variant="muted" className="text-xs">
-        {frequencyLabel(habit)}
-      </Text>
-    </View>
-  );
-}
-
 function useDayCounts(habit: Habit, completions: HabitCompletion[]) {
   return React.useMemo(() => {
     const map = new Map<string, number>();
@@ -190,242 +171,183 @@ function useDayCounts(habit: Habit, completions: HabitCompletion[]) {
   }, [completions, habit.id]);
 }
 
-function dayHit(habit: Habit, count: number): boolean {
-  const target = habit.frequencyKind === 'daily' ? habit.timesPerPeriod : 1;
-  return count >= target;
+function targetThisWeek(habit: Habit): number {
+  if (habit.frequencyKind === 'daily') {
+    const len = habit.daysOfWeek.length;
+    return len === 0 ? 7 : len;
+  }
+  return habit.timesPerPeriod;
 }
 
-function HabitRowWeek({
+function daysDoneThisWeek(habit: Habit, completions: HabitCompletion[]): number {
+  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const days = new Set<string>();
+  for (const c of completions) {
+    if (c.habitId !== habit.id) continue;
+    const d = new Date(c.completedAt);
+    if (d < weekStart) continue;
+    days.add(format(startOfDay(d), DAY_FORMAT));
+  }
+  return days.size;
+}
+
+function countCompletionsThisWeek(habit: Habit, completions: HabitCompletion[]): number {
+  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  let n = 0;
+  for (const c of completions) {
+    if (c.habitId !== habit.id) continue;
+    if (new Date(c.completedAt) < weekStart) continue;
+    n++;
+  }
+  return n;
+}
+
+function isDoneToday(habit: Habit, completions: HabitCompletion[]): boolean {
+  const today = startOfDay(new Date());
+  return completions.some(
+    (c) => c.habitId === habit.id && isSameDay(new Date(c.completedAt), today)
+  );
+}
+
+function HabitRow({
   habit,
   completions,
-  planned,
-  onIncrement,
-  onDecrement,
-  onToggleDay,
-  onLongPressDay,
+  onTap,
+  onLongPress,
+  showTodayLabel,
 }: {
   habit: Habit;
   completions: HabitCompletion[];
-  planned: Set<string>;
-  onIncrement: () => void;
-  onDecrement: () => void;
-  onToggleDay: (day: Date, hit: boolean) => void;
-  onLongPressDay: (day: Date) => void;
+  onTap: () => void;
+  onLongPress: () => void;
+  showTodayLabel?: boolean;
 }) {
+  const target = targetThisWeek(habit);
+  const count =
+    habit.frequencyKind === 'daily'
+      ? daysDoneThisWeek(habit, completions)
+      : countCompletionsThisWeek(habit, completions);
+  const checked =
+    habit.frequencyKind === 'daily' ? isDoneToday(habit, completions) : count >= target;
+
   return (
     <Animated.View entering={FadeIn.duration(180)}>
       <Pressable
         onPress={() => router.push({ pathname: '/habit-detail', params: { id: habit.id } })}
-        className="px-4 py-1.5 active:bg-accent">
-        <View className="gap-2">
-          <HabitHeader habit={habit} />
-          {isMultiPerDay(habit) ? (
-            <SlotRow
-              habit={habit}
-              completions={completions}
-              onIncrement={onIncrement}
-              onDecrement={onDecrement}
-            />
-          ) : (
-            <WeekRow
-              habit={habit}
-              completions={completions}
-              planned={planned}
-              onToggleDay={onToggleDay}
-              onLongPressDay={onLongPressDay}
-            />
-          )}
+        className="px-4 py-3 pr-5 active:opacity-70">
+        <View className="flex-row items-center gap-3">
+          <Text className="flex-1 text-base" numberOfLines={1}>
+            {habit.title}
+          </Text>
+          {showTodayLabel ? (
+            <Text variant="muted" className="text-xs">
+              Today
+            </Text>
+          ) : null}
+        </View>
+        <View className="mt-2 flex-row items-center gap-4">
+          <View className="flex-1">
+            <DotStack habit={habit} completions={completions} />
+          </View>
+          <HabitCheckbox checked={checked} onTap={onTap} onLongPress={onLongPress} />
         </View>
       </Pressable>
     </Animated.View>
   );
 }
 
-function HabitRowMonth({
-  habit,
-  completions,
-  planned,
-  onToggleDay,
-  onLongPressDay,
-}: {
-  habit: Habit;
-  completions: HabitCompletion[];
-  planned: Set<string>;
-  onToggleDay: (day: Date, hit: boolean) => void;
-  onLongPressDay: (day: Date) => void;
-}) {
-  const now = new Date();
-  const currentWeekStart = startOfWeek(now, { weekStartsOn: 1 });
-  const weeks = React.useMemo(() => {
-    // Oldest week on top, current week on the bottom.
-    const out: Date[] = [];
-    for (let i = MONTH_WEEKS - 1; i >= 0; i--) {
-      out.push(subWeeks(currentWeekStart, i));
-    }
-    return out;
-  }, [currentWeekStart]);
+const DOT_PX = 12;
+const INTRA_GAP_PX = 4;
+const INTER_WEEK_GAP_PX = 10;
 
-  return (
-    <Animated.View entering={FadeIn.duration(180)}>
-      <Pressable
-        onPress={() => router.push({ pathname: '/habit-detail', params: { id: habit.id } })}
-        className="px-4 py-1.5 active:bg-accent">
-        <View className="gap-1.5">
-          <HabitHeader habit={habit} />
-          {weeks.map((weekStart) => (
-            <WeekRow
-              key={format(weekStart, DAY_FORMAT)}
-              habit={habit}
-              completions={completions}
-              planned={planned}
-              onToggleDay={onToggleDay}
-              onLongPressDay={onLongPressDay}
-              weekStart={weekStart}
-            />
-          ))}
-        </View>
-      </Pressable>
-    </Animated.View>
-  );
-}
-
-function WeekRow({
-  habit,
-  completions,
-  planned,
-  onToggleDay,
-  onLongPressDay,
-  weekStart,
-}: {
-  habit: Habit;
-  completions: HabitCompletion[];
-  planned: Set<string>;
-  onToggleDay: (day: Date, hit: boolean) => void;
-  onLongPressDay: (day: Date) => void;
-  weekStart?: Date;
-}) {
-  const now = new Date();
-  const start = weekStart ?? startOfWeek(now, { weekStartsOn: 1 });
-  const today = startOfDay(now);
+function DotStack({ habit, completions }: { habit: Habit; completions: HabitCompletion[] }) {
+  const [width, setWidth] = React.useState(0);
   const dayCounts = useDayCounts(habit, completions);
 
-  const currentWeekStart = startOfWeek(now, { weekStartsOn: 1 });
-  const isCurrentWeek = isSameDay(start, currentWeekStart);
-  const weekLabel = isCurrentWeek ? 'This wk' : format(start, 'MMM d');
+  const onLayout = React.useCallback((e: LayoutChangeEvent) => {
+    setWidth(e.nativeEvent.layout.width);
+  }, []);
+
+  const groups = React.useMemo(() => {
+    if (width <= 0) return [];
+    const today = startOfDay(new Date());
+    // Walk backward from today, day by day, until we'd exceed the available width.
+    // Going from a Monday back to the prior Sunday crosses a week boundary, so add
+    // the larger inter-week gap instead of the intra-week gap.
+    const days: Date[] = [today];
+    let used = DOT_PX;
+    let cursor = today;
+    for (let i = 0; i < 365; i++) {
+      const wasMonday = cursor.getDay() === 1; // Mon = 1 with weekStartsOn=1
+      const addWidth = (wasMonday ? INTER_WEEK_GAP_PX : INTRA_GAP_PX) + DOT_PX;
+      if (used + addWidth > width) break;
+      used += addWidth;
+      cursor = subDays(cursor, 1);
+      days.unshift(cursor);
+    }
+    // Group consecutive days by ISO week (Mon..Sun).
+    const out: { weekStart: Date; days: Date[] }[] = [];
+    let lastKey: string | null = null;
+    for (const d of days) {
+      const ws = startOfWeek(d, { weekStartsOn: 1 });
+      const key = format(ws, DAY_FORMAT);
+      if (key !== lastKey) {
+        out.push({ weekStart: ws, days: [] });
+        lastKey = key;
+      }
+      out[out.length - 1].days.push(d);
+    }
+    return out;
+  }, [width]);
 
   return (
-    <View className="flex-row items-center gap-2">
-      <Text variant="muted" className="w-14 text-xs">
-        {weekLabel}
-      </Text>
-      <View className="flex-1 flex-row items-center gap-1.5">
-        {Array.from({ length: 7 }).map((_, i) => {
-        const day = new Date(start);
-        day.setDate(start.getDate() + i);
-        const key = format(day, DAY_FORMAT);
-        const count = dayCounts.get(key) ?? 0;
-        const hit = dayHit(habit, count);
-        const isToday = isSameDay(day, today);
-        const isFuture = day.getTime() > today.getTime();
-        const isPlanned = !hit && planned.has(plannedKey(habit.id, day));
-
-        return (
-          <Pressable
-            key={i}
-            onPress={() => onToggleDay(day, hit)}
-            onLongPress={!hit ? () => onLongPressDay(day) : undefined}
-            delayLongPress={250}
-            hitSlop={6}
-            className={cn(
-              'size-6 items-center justify-center rounded-full',
-              hit
-                ? 'bg-green-500/15'
-                : isPlanned
-                  ? 'bg-violet-500/25'
-                  : isToday
-                    ? 'bg-violet-500/15'
-                    : isFuture
-                      ? 'bg-muted/50'
-                      : 'bg-muted'
-            )}>
-            {hit ? (
-              <Icon as={CheckIcon} size={14} className="text-green-500" />
-            ) : (
-              <Text
-                className={cn(
-                  'text-xs font-semibold',
-                  isPlanned || isToday
-                    ? 'text-violet-500'
-                    : isFuture
-                      ? 'text-muted-foreground/50'
-                      : 'text-muted-foreground'
-                )}>
-                {WEEK_LABELS[i]}
-              </Text>
-            )}
-          </Pressable>
-        );
-      })}
-      </View>
+    <View
+      onLayout={onLayout}
+      className="flex-row items-center justify-end"
+      style={{ gap: INTER_WEEK_GAP_PX }}>
+      {groups.map((g) => (
+        <View
+          key={format(g.weekStart, DAY_FORMAT)}
+          className="flex-row items-center"
+          style={{ gap: INTRA_GAP_PX }}>
+          {g.days.map((day) => {
+            const key = format(day, DAY_FORMAT);
+            const filled = (dayCounts.get(key) ?? 0) > 0;
+            return (
+              <Animated.View
+                key={`${key}-${filled ? 'on' : 'off'}`}
+                entering={
+                  filled ? ZoomIn.springify().damping(7).stiffness(180).mass(0.6) : undefined
+                }
+                style={{ width: DOT_PX, height: DOT_PX, borderRadius: DOT_PX / 2 }}
+                className={filled ? 'bg-green-500' : 'bg-muted'}
+              />
+            );
+          })}
+        </View>
+      ))}
     </View>
   );
 }
 
-function SlotRow({
-  habit,
-  completions,
-  onIncrement,
-  onDecrement,
+function HabitCheckbox({
+  checked,
+  onTap,
+  onLongPress,
 }: {
-  habit: Habit;
-  completions: HabitCompletion[];
-  onIncrement: () => void;
-  onDecrement: () => void;
+  checked: boolean;
+  onTap: () => void;
+  onLongPress: () => void;
 }) {
-  const today = startOfDay(new Date());
-  const doneToday = completions.filter(
-    (c) => c.habitId === habit.id && isSameDay(new Date(c.completedAt), today)
-  ).length;
-  const target = habit.timesPerPeriod;
-
-  const cells = Math.max(target, 7);
-
   return (
-    <View className="flex-row items-center gap-2">
-      <Text variant="muted" className="w-14 text-xs">
-        Today
-      </Text>
-      <View className="flex-1 flex-row items-center gap-1.5">
-      {Array.from({ length: cells }).map((_, i) => {
-        if (i >= target) return <View key={i} className="size-6" />;
-        const filled = i < doneToday;
-        const isNextEmpty = i === doneToday;
-        const isLastFilled = filled && i === doneToday - 1;
-        const onPress = isNextEmpty
-          ? onIncrement
-          : isLastFilled
-            ? onDecrement
-            : undefined;
-
-        return (
-          <Pressable
-            key={i}
-            onPress={onPress}
-            disabled={!onPress}
-            hitSlop={6}
-            className={cn(
-              'size-6 items-center justify-center rounded-full',
-              filled
-                ? 'bg-green-500/15'
-                : isNextEmpty
-                  ? 'bg-violet-500/15'
-                  : 'bg-muted'
-            )}>
-            {filled ? <Icon as={CheckIcon} size={14} className="text-green-500" /> : null}
-          </Pressable>
-        );
-      })}
+    <Pressable onPress={onTap} onLongPress={onLongPress} delayLongPress={350} hitSlop={12}>
+      <View
+        className={cn(
+          'size-6 items-center justify-center rounded-full border-2',
+          checked ? 'border-green-500 bg-green-500' : 'border-muted-foreground/40 bg-transparent'
+        )}>
+        {checked ? <Icon as={CheckIcon} size={14} className="text-white" /> : null}
       </View>
-    </View>
+    </Pressable>
   );
 }

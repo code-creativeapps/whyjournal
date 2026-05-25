@@ -1,33 +1,43 @@
+import {
+  addWeeks,
+  endOfMonth,
+  endOfWeek,
+  format,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+  subMonths,
+} from 'date-fns';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import {
-  CheckIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   FlameIcon,
   LayersIcon,
   PencilIcon,
-  PlusIcon,
   RepeatIcon,
-  RotateCcwIcon,
   TargetIcon,
   XIcon,
 } from 'lucide-react-native';
 import * as React from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
+import Animated, { ZoomIn } from 'react-native-reanimated';
 
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import {
-  currentStreak,
-  last7Days,
-  progressForToday,
-} from '@/lib/habits/frequency';
-import type { Habit } from '@/lib/habits/types';
+import { currentStreak } from '@/lib/habits/frequency';
+import type { Habit, HabitCompletion } from '@/lib/habits/types';
 import { useGoalsStore } from '@/lib/stores/goals';
 import { useHabitCompletionsStore } from '@/lib/stores/habit-completions';
 import { useHabitsStore } from '@/lib/stores/habits';
 import { useRoutinesStore } from '@/lib/stores/routines';
 import { cn } from '@/lib/utils';
 
-const DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const DAY_FORMAT = 'yyyy-MM-dd';
+const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const HISTORY_MONTHS = 12;
+const HISTORY_DOT_PX = 30;
+const HISTORY_GAP_PX = 8;
 
 export default function HabitDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -37,7 +47,7 @@ export default function HabitDetailScreen() {
 
   const completions = useHabitCompletionsStore((s) => s.items);
   const addCompletion = useHabitCompletionsStore((s) => s.addCompletion);
-  const removeLatest = useHabitCompletionsStore((s) => s.removeLatest);
+  const removeOnDay = useHabitCompletionsStore((s) => s.removeOnDay);
 
   const routine = useRoutinesStore((s) =>
     habit?.routineId ? s.items.find((r) => r.id === habit.routineId) : undefined
@@ -52,20 +62,17 @@ export default function HabitDetailScreen() {
 
   if (!habit) return null;
 
-  const { done, target, ratio } = progressForToday(habit, completions);
-  const isDone = done >= target;
-  const days = last7Days(habit, completions);
   const streak = currentStreak(habit, completions);
-  const totalCompletions = completions.filter((c) => c.habitId === habit.id).length;
 
-  function handleIncrement() {
+  function handleToggleDay(day: Date, filled: boolean) {
     if (!habit) return;
-    addCompletion(habit.id).catch(() => {});
-  }
-
-  function handleUndo() {
-    if (!habit) return;
-    removeLatest(habit.id).catch(() => {});
+    if (filled) {
+      removeOnDay(habit.id, day).catch(() => {});
+    } else {
+      const d = new Date(day);
+      d.setHours(12, 0, 0, 0);
+      addCompletion(habit.id, d.toISOString()).catch(() => {});
+    }
   }
 
   return (
@@ -132,111 +139,221 @@ export default function HabitDetailScreen() {
           </Text>
         ) : null}
 
-        <View className="gap-3 rounded-2xl border border-border bg-background p-4">
-          <View className="flex-row items-center justify-between gap-3">
-            <View className="flex-1">
-              <Text variant="muted" className="text-xs uppercase tracking-wide">
-                {habit.frequencyKind === 'weekly' ? 'This week' : 'Today'}
-              </Text>
-              <Text className="mt-1 text-2xl font-semibold">
-                {done}{' '}
-                <Text variant="muted" className="text-base font-normal">
-                  / {target}
-                </Text>
+        {streak > 0 ? (
+          <View className="flex-row justify-center">
+            <View className="flex-row items-center gap-1 rounded-full bg-orange-500/15 px-2.5 py-1">
+              <Icon as={FlameIcon} size={13} className="text-orange-500" />
+              <Text variant="small" className="text-xs font-semibold text-orange-600">
+                {streak}
+                {habit.frequencyKind === 'weekly' ? ' week' : ' day'}
+                {streak === 1 ? '' : 's'}
               </Text>
             </View>
-            <View className="flex-row items-center gap-2">
-              {done > 0 ? (
-                <Pressable
-                  onPress={handleUndo}
-                  hitSlop={8}
-                  className="size-11 items-center justify-center rounded-full border border-border">
-                  <Icon as={RotateCcwIcon} size={18} className="text-muted-foreground" />
-                </Pressable>
-              ) : null}
-              {isDone ? (
-                <View className="size-11 items-center justify-center rounded-full bg-green-500/20">
-                  <Icon as={CheckIcon} size={20} className="text-green-600" />
-                </View>
-              ) : (
-                <Pressable
-                  onPress={handleIncrement}
-                  hitSlop={8}
-                  className="size-11 items-center justify-center rounded-full bg-violet-500">
-                  <Icon as={PlusIcon} size={20} className="text-white" />
-                </Pressable>
-              )}
-            </View>
           </View>
-          {target > 1 ? (
-            <View className="h-1.5 overflow-hidden rounded-full bg-muted">
-              <View
-                className="h-full rounded-full bg-violet-500"
-                style={{ width: `${Math.round(ratio * 100)}%` }}
-              />
-            </View>
-          ) : null}
-        </View>
+        ) : null}
 
-        <View className="gap-3">
-          <View className="flex-row items-center justify-between">
-            <Text variant="muted" className="text-xs uppercase tracking-wide">
-              Last 7 days
-            </Text>
-            {streak > 0 ? (
-              <View className="flex-row items-center gap-1 rounded-full bg-orange-500/15 px-2 py-0.5">
-                <Icon as={FlameIcon} size={12} className="text-orange-500" />
-                <Text variant="small" className="text-xs font-semibold text-orange-600">
-                  {streak}
-                  {habit.frequencyKind === 'weekly' ? ' week' : ' day'}
-                  {streak === 1 ? '' : 's'}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-          <View className="flex-row gap-1.5">
-            {days.map((d) => {
-              const date = new Date(d.date);
-              const dow = date.getDay();
-              const scheduled =
-                habit.frequencyKind === 'weekly' || habit.daysOfWeek.includes(dow);
-              return (
-                <View key={d.date} className="flex-1 gap-1">
-                  <View
-                    className={cn(
-                      'h-10 rounded-md',
-                      d.hit
-                        ? 'bg-violet-500'
-                        : scheduled
-                          ? 'bg-muted'
-                          : 'bg-muted/40'
-                    )}
-                  />
-                  <Text variant="muted" className="text-center text-[10px]">
-                    {DAY_LETTERS[dow]}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        </View>
-
-        <View className="flex-row gap-3">
-          <StatCard label="Streak" value={String(streak)} />
-          <StatCard label="Total" value={String(totalCompletions)} />
-        </View>
+        <HistoryGrid habit={habit} completions={completions} onToggleDay={handleToggleDay} />
       </ScrollView>
     </>
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+function HistoryGrid({
+  habit,
+  completions,
+  onToggleDay,
+}: {
+  habit: Habit;
+  completions: HabitCompletion[];
+  onToggleDay: (day: Date, filled: boolean) => void;
+}) {
+  const dayCounts = React.useMemo(() => {
+    const map = new Map<string, number>();
+    for (const c of completions) {
+      if (c.habitId !== habit.id) continue;
+      const key = format(startOfDay(new Date(c.completedAt)), DAY_FORMAT);
+      map.set(key, (map.get(key) ?? 0) + 1);
+    }
+    return map;
+  }, [completions, habit.id]);
+
+  const today = startOfDay(new Date());
+
+  const [showLabels, setShowLabels] = React.useState(false);
+  const [monthOffset, setMonthOffset] = React.useState(0);
+
+  const monthStart = React.useMemo(
+    () => startOfMonth(subMonths(today, monthOffset)),
+    [today, monthOffset]
+  );
+  const canGoForward = monthOffset > 0;
+  const canGoBack = monthOffset < HISTORY_MONTHS - 1;
+
   return (
-    <View className="flex-1 gap-1 rounded-2xl border border-border bg-background p-4">
-      <Text variant="muted" className="text-xs uppercase tracking-wide">
-        {label}
-      </Text>
-      <Text className="text-2xl font-semibold">{value}</Text>
+    <View className="gap-3">
+      <View className="flex-row items-center justify-between">
+        <Pressable
+          onPress={() => canGoBack && setMonthOffset((o) => o + 1)}
+          disabled={!canGoBack}
+          hitSlop={10}
+          className="p-1"
+          style={{ opacity: canGoBack ? 1 : 0.3 }}>
+          <Icon as={ChevronLeftIcon} size={20} className="text-foreground" />
+        </Pressable>
+        <Text className="text-base font-semibold">
+          {format(monthStart, 'MMMM yyyy')}
+        </Text>
+        <Pressable
+          onPress={() => canGoForward && setMonthOffset((o) => o - 1)}
+          disabled={!canGoForward}
+          hitSlop={10}
+          className="p-1"
+          style={{ opacity: canGoForward ? 1 : 0.3 }}>
+          <Icon as={ChevronRightIcon} size={20} className="text-foreground" />
+        </Pressable>
+      </View>
+
+      <View className="flex-row justify-end">
+        <Pressable
+          onPress={() => setShowLabels((s) => !s)}
+          hitSlop={8}
+          className="px-2 py-1">
+          <Text variant="muted" className="text-xs">
+            {showLabels ? 'Hide labels' : 'Show labels'}
+          </Text>
+        </Pressable>
+      </View>
+
+      <MonthGrid
+        monthStart={monthStart}
+        today={today}
+        dayCounts={dayCounts}
+        showLabels={showLabels}
+        onToggleDay={onToggleDay}
+      />
+    </View>
+  );
+}
+
+function MonthGrid({
+  monthStart,
+  today,
+  dayCounts,
+  showLabels,
+  onToggleDay,
+}: {
+  monthStart: Date;
+  today: Date;
+  dayCounts: Map<string, number>;
+  showLabels: boolean;
+  onToggleDay: (day: Date, filled: boolean) => void;
+}) {
+  const monthIndex = monthStart.getMonth();
+  const monthEnd = endOfMonth(monthStart);
+  const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+
+  const weeks = React.useMemo(() => {
+    const out: Date[] = [];
+    let cursor = gridStart;
+    while (cursor.getTime() <= gridEnd.getTime()) {
+      out.push(cursor);
+      cursor = addWeeks(cursor, 1);
+    }
+    while (out.length < 6) {
+      out.push(addWeeks(out[out.length - 1], 1));
+    }
+    return out;
+  }, [gridStart, gridEnd]);
+
+  const dotStyle = {
+    width: HISTORY_DOT_PX,
+    height: HISTORY_DOT_PX,
+    borderRadius: HISTORY_DOT_PX / 2,
+  };
+
+  return (
+    <View className="items-center">
+      <View style={{ gap: HISTORY_GAP_PX }}>
+        {weeks.map((weekStart) => (
+          <View
+            key={format(weekStart, DAY_FORMAT)}
+            className="flex-row"
+            style={{ gap: HISTORY_GAP_PX }}>
+            {Array.from({ length: 7 }).map((_, i) => {
+              const day = new Date(weekStart);
+              day.setDate(weekStart.getDate() + i);
+              const isInMonth = day.getMonth() === monthIndex;
+              const isFuture = day.getTime() > today.getTime();
+              const key = format(day, DAY_FORMAT);
+              const filled = (dayCounts.get(key) ?? 0) > 0;
+              const letter = DAY_LETTERS[i];
+
+              return (
+                <View
+                  key={i}
+                  className="items-center"
+                  style={{ width: HISTORY_DOT_PX }}>
+                  {showLabels ? (
+                    <Text
+                      variant="muted"
+                      className="mb-1 text-[10px]"
+                      style={{ opacity: isInMonth ? 1 : 0.3 }}>
+                      {day.getDate()}
+                    </Text>
+                  ) : null}
+                  {isInMonth ? (
+                    <Pressable
+                      disabled={isFuture}
+                      onPress={() => onToggleDay(day, filled)}
+                      hitSlop={4}>
+                      {filled ? (
+                        <Animated.View
+                          key={`${key}-on-${showLabels ? 'l' : 'n'}`}
+                          entering={ZoomIn.springify().damping(7).stiffness(180).mass(0.6)}
+                          style={dotStyle}
+                          className="items-center justify-center bg-green-500">
+                          {showLabels ? (
+                            <Text className="text-[11px] font-semibold text-white">
+                              {letter}
+                            </Text>
+                          ) : null}
+                        </Animated.View>
+                      ) : (
+                        <View
+                          key={`${key}-off-${showLabels ? 'l' : 'n'}`}
+                          style={dotStyle}
+                          className={cn(
+                            'items-center justify-center',
+                            isFuture ? 'bg-muted/40' : 'bg-muted'
+                          )}>
+                          {showLabels ? (
+                            <Text className="text-[11px] font-semibold text-muted-foreground">
+                              {letter}
+                            </Text>
+                          ) : null}
+                        </View>
+                      )}
+                    </Pressable>
+                  ) : (
+                    <View
+                      style={dotStyle}
+                      className="items-center justify-center bg-muted/30">
+                      {showLabels ? (
+                        <Text
+                          className="text-[11px] font-semibold text-muted-foreground"
+                          style={{ opacity: 0.5 }}>
+                          {letter}
+                        </Text>
+                      ) : null}
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
