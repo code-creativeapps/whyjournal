@@ -216,9 +216,9 @@ function HabitRowWeek({
     <Animated.View entering={FadeIn.duration(180)}>
       <Pressable
         onPress={() => router.push({ pathname: '/habit-detail', params: { id: habit.id } })}
-        className="px-4 py-3 active:bg-accent">
-        <HabitHeader habit={habit} />
-        <View className="mt-2">
+        className="px-4 py-1.5 active:bg-accent">
+        <View className="gap-2">
+          <HabitHeader habit={habit} />
           {isMultiPerDay(habit) ? (
             <SlotRow
               habit={habit}
@@ -233,7 +233,6 @@ function HabitRowWeek({
               planned={planned}
               onToggleDay={onToggleDay}
               onLongPressDay={onLongPressDay}
-              showLabels
             />
           )}
         </View>
@@ -270,10 +269,10 @@ function HabitRowMonth({
     <Animated.View entering={FadeIn.duration(180)}>
       <Pressable
         onPress={() => router.push({ pathname: '/habit-detail', params: { id: habit.id } })}
-        className="px-4 py-3 active:bg-accent">
-        <HabitHeader habit={habit} />
-        <View className="mt-2 gap-1.5">
-          {weeks.map((weekStart, idx) => (
+        className="px-4 py-1.5 active:bg-accent">
+        <View className="gap-1.5">
+          <HabitHeader habit={habit} />
+          {weeks.map((weekStart) => (
             <WeekRow
               key={format(weekStart, DAY_FORMAT)}
               habit={habit}
@@ -282,8 +281,6 @@ function HabitRowMonth({
               onToggleDay={onToggleDay}
               onLongPressDay={onLongPressDay}
               weekStart={weekStart}
-              showLabels={idx === weeks.length - 1}
-              compact
             />
           ))}
         </View>
@@ -299,8 +296,6 @@ function WeekRow({
   onToggleDay,
   onLongPressDay,
   weekStart,
-  showLabels = true,
-  compact = false,
 }: {
   habit: Habit;
   completions: HabitCompletion[];
@@ -308,17 +303,23 @@ function WeekRow({
   onToggleDay: (day: Date, hit: boolean) => void;
   onLongPressDay: (day: Date) => void;
   weekStart?: Date;
-  showLabels?: boolean;
-  compact?: boolean;
 }) {
   const now = new Date();
   const start = weekStart ?? startOfWeek(now, { weekStartsOn: 1 });
   const today = startOfDay(now);
   const dayCounts = useDayCounts(habit, completions);
 
+  const currentWeekStart = startOfWeek(now, { weekStartsOn: 1 });
+  const isCurrentWeek = isSameDay(start, currentWeekStart);
+  const weekLabel = isCurrentWeek ? 'This wk' : format(start, 'MMM d');
+
   return (
-    <View className="flex-row gap-1.5">
-      {Array.from({ length: 7 }).map((_, i) => {
+    <View className="flex-row items-center gap-2">
+      <Text variant="muted" className="w-14 text-xs">
+        {weekLabel}
+      </Text>
+      <View className="flex-1 flex-row items-center gap-1.5">
+        {Array.from({ length: 7 }).map((_, i) => {
         const day = new Date(start);
         day.setDate(start.getDate() + i);
         const key = format(day, DAY_FORMAT);
@@ -334,37 +335,38 @@ function WeekRow({
             onPress={() => onToggleDay(day, hit)}
             onLongPress={!hit ? () => onLongPressDay(day) : undefined}
             delayLongPress={250}
-            hitSlop={4}
+            hitSlop={6}
             className={cn(
-              'aspect-square flex-1 items-center justify-center rounded-full border-2',
+              'size-6 items-center justify-center rounded-full',
               hit
-                ? 'border-green-500 bg-green-500'
+                ? 'bg-green-500/15'
                 : isPlanned
-                  ? 'border-violet-500'
-                  : isFuture
-                    ? 'border-border'
-                    : 'border-muted-foreground/40'
+                  ? 'bg-violet-500/25'
+                  : isToday
+                    ? 'bg-violet-500/15'
+                    : isFuture
+                      ? 'bg-muted/50'
+                      : 'bg-muted'
             )}>
             {hit ? (
-              <Icon as={CheckIcon} size={compact ? 16 : 22} className="text-white" />
-            ) : showLabels ? (
+              <Icon as={CheckIcon} size={14} className="text-green-500" />
+            ) : (
               <Text
                 className={cn(
-                  compact ? 'text-xs font-semibold' : 'text-sm font-semibold',
-                  isPlanned
+                  'text-xs font-semibold',
+                  isPlanned || isToday
                     ? 'text-violet-500'
-                    : isToday
-                      ? 'text-foreground'
-                      : isFuture
-                        ? 'text-muted-foreground/50'
-                        : 'text-muted-foreground'
+                    : isFuture
+                      ? 'text-muted-foreground/50'
+                      : 'text-muted-foreground'
                 )}>
                 {WEEK_LABELS[i]}
               </Text>
-            ) : null}
+            )}
           </Pressable>
         );
       })}
+      </View>
     </View>
   );
 }
@@ -389,9 +391,13 @@ function SlotRow({
   const cells = Math.max(target, 7);
 
   return (
-    <View className="flex-row gap-1.5">
+    <View className="flex-row items-center gap-2">
+      <Text variant="muted" className="w-14 text-xs">
+        Today
+      </Text>
+      <View className="flex-1 flex-row items-center gap-1.5">
       {Array.from({ length: cells }).map((_, i) => {
-        if (i >= target) return <View key={i} className="flex-1" />;
+        if (i >= target) return <View key={i} className="size-6" />;
         const filled = i < doneToday;
         const isNextEmpty = i === doneToday;
         const isLastFilled = filled && i === doneToday - 1;
@@ -406,19 +412,20 @@ function SlotRow({
             key={i}
             onPress={onPress}
             disabled={!onPress}
-            hitSlop={4}
+            hitSlop={6}
             className={cn(
-              'aspect-square flex-1 items-center justify-center rounded-full border-2',
+              'size-6 items-center justify-center rounded-full',
               filled
-                ? 'border-green-500 bg-green-500'
+                ? 'bg-green-500/15'
                 : isNextEmpty
-                  ? 'border-violet-500'
-                  : 'border-muted-foreground/40'
+                  ? 'bg-violet-500/15'
+                  : 'bg-muted'
             )}>
-            {filled ? <Icon as={CheckIcon} size={22} className="text-white" /> : null}
+            {filled ? <Icon as={CheckIcon} size={14} className="text-green-500" /> : null}
           </Pressable>
         );
       })}
+      </View>
     </View>
   );
 }

@@ -25,6 +25,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuthStore } from '@/lib/stores/auth';
 import { useOnboardingStore } from '@/lib/stores/onboarding';
+import { THEME } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
 const DRAWER_COLORS = {
@@ -127,6 +128,10 @@ export default function DrawerLayout() {
       screenOptions={{
         headerShown: true,
         drawerType: 'slide',
+        headerTintColor: THEME.light.primary,
+        headerStyle: { backgroundColor: THEME.light.background },
+        headerTitleStyle: { color: THEME.light.foreground },
+        headerShadowVisible: false,
         headerRight: () => <SearchHeaderButton />,
       }}
       drawerContent={(props) => <CustomDrawerContent {...props} />}>
