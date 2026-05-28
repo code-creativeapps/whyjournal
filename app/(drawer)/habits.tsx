@@ -17,59 +17,33 @@ import { cn } from '@/lib/utils';
 
 const DAY_FORMAT = 'yyyy-MM-dd';
 
-type Tab = 'daily' | 'weekly';
-
 export default function HabitsScreen() {
   const habits = useHabitsStore((s) => s.items);
   const hydrated = useHabitsStore((s) => s.hydrated);
   const completions = useHabitCompletionsStore((s) => s.items);
   const addCompletion = useHabitCompletionsStore((s) => s.addCompletion);
-  const removeLatest = useHabitCompletionsStore((s) => s.removeLatest);
   const removeOnDay = useHabitCompletionsStore((s) => s.removeOnDay);
-
-  const [tab, setTab] = React.useState<Tab>('daily');
-
-  const filtered = React.useMemo(
-    () =>
-      habits.filter((h) =>
-        tab === 'daily' ? h.frequencyKind === 'daily' : h.frequencyKind === 'weekly'
-      ),
-    [habits, tab]
-  );
 
   const handleTap = React.useCallback(
     (habit: Habit) => {
-      if (habit.frequencyKind === 'daily') {
-        const today = startOfDay(new Date());
-        const doneToday = completions.some(
-          (c) => c.habitId === habit.id && isSameDay(new Date(c.completedAt), today)
-        );
-        if (doneToday) {
-          removeOnDay(habit.id, today).catch(() => {});
-        } else {
-          addCompletion(habit.id, isoForNoon(today)).catch(() => {});
-        }
-        return;
+      const today = startOfDay(new Date());
+      const doneToday = completions.some(
+        (c) => c.habitId === habit.id && isSameDay(new Date(c.completedAt), today)
+      );
+      if (doneToday) {
+        removeOnDay(habit.id, today).catch(() => {});
+      } else {
+        addCompletion(habit.id, isoForNoon(today)).catch(() => {});
       }
-      const count = countCompletionsThisWeek(habit, completions);
-      if (count >= habit.timesPerPeriod) {
-        removeLatest(habit.id).catch(() => {});
-        return;
-      }
-      addCompletion(habit.id).catch(() => {});
     },
-    [addCompletion, completions, removeLatest, removeOnDay]
+    [addCompletion, completions, removeOnDay]
   );
 
   const handleUndo = React.useCallback(
     (habit: Habit) => {
-      if (habit.frequencyKind === 'daily') {
-        removeOnDay(habit.id, startOfDay(new Date())).catch(() => {});
-      } else {
-        removeLatest(habit.id).catch(() => {});
-      }
+      removeOnDay(habit.id, startOfDay(new Date())).catch(() => {});
     },
-    [removeLatest, removeOnDay]
+    [removeOnDay]
   );
 
   const insets = useSafeAreaInsets();
@@ -77,7 +51,6 @@ export default function HabitsScreen() {
   return (
     <SwipeableScreen route="habits">
       <View className="flex-1">
-        <SegmentedTab value={tab} onChange={setTab} />
         {hydrated && habits.length === 0 ? (
           <View className="flex-1 items-center justify-center gap-4 px-8">
             <Text variant="h3" className="text-center">
@@ -90,8 +63,7 @@ export default function HabitsScreen() {
           </View>
         ) : (
           <FlatList
-            key={tab}
-            data={filtered}
+            data={habits}
             keyExtractor={(h) => h.id}
             renderItem={({ item, index }) => (
               <HabitRow
@@ -102,15 +74,6 @@ export default function HabitsScreen() {
                 showTodayLabel={index === 0}
               />
             )}
-            ListEmptyComponent={
-              <View className="px-8 py-16">
-                <Text variant="muted" className="text-center">
-                  {tab === 'daily'
-                    ? 'No daily habits yet.'
-                    : 'No weekly habits yet.'}
-                </Text>
-              </View>
-            }
             ItemSeparatorComponent={() => <View className="h-px bg-border" />}
             contentContainerStyle={{ paddingTop: 12, paddingBottom: insets.bottom + 96 }}
           />
@@ -118,38 +81,6 @@ export default function HabitsScreen() {
         <Fab href="/habit" />
       </View>
     </SwipeableScreen>
-  );
-}
-
-function SegmentedTab({ value, onChange }: { value: Tab; onChange: (v: Tab) => void }) {
-  return (
-    <View className="mx-4 mt-3 flex-row rounded-full bg-muted p-1">
-      {(
-        [
-          { key: 'daily', label: 'Daily' },
-          { key: 'weekly', label: 'Weekly' },
-        ] as { key: Tab; label: string }[]
-      ).map((t) => {
-        const active = value === t.key;
-        return (
-          <Pressable
-            key={t.key}
-            onPress={() => onChange(t.key)}
-            className={cn(
-              'flex-1 items-center rounded-full py-1.5',
-              active && 'bg-background shadow-sm'
-            )}>
-            <Text
-              className={cn(
-                'text-sm font-medium',
-                active ? 'text-foreground' : 'text-muted-foreground'
-              )}>
-              {t.label}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
   );
 }
 
@@ -171,42 +102,38 @@ function useDayCounts(habit: Habit, completions: HabitCompletion[]) {
   }, [completions, habit.id]);
 }
 
-function targetThisWeek(habit: Habit): number {
-  if (habit.frequencyKind === 'daily') {
-    const len = habit.daysOfWeek.length;
-    return len === 0 ? 7 : len;
-  }
-  return habit.timesPerPeriod;
-}
-
-function daysDoneThisWeek(habit: Habit, completions: HabitCompletion[]): number {
-  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-  const days = new Set<string>();
-  for (const c of completions) {
-    if (c.habitId !== habit.id) continue;
-    const d = new Date(c.completedAt);
-    if (d < weekStart) continue;
-    days.add(format(startOfDay(d), DAY_FORMAT));
-  }
-  return days.size;
-}
-
-function countCompletionsThisWeek(habit: Habit, completions: HabitCompletion[]): number {
-  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-  let n = 0;
-  for (const c of completions) {
-    if (c.habitId !== habit.id) continue;
-    if (new Date(c.completedAt) < weekStart) continue;
-    n++;
-  }
-  return n;
-}
-
 function isDoneToday(habit: Habit, completions: HabitCompletion[]): boolean {
   const today = startOfDay(new Date());
   return completions.some(
     (c) => c.habitId === habit.id && isSameDay(new Date(c.completedAt), today)
   );
+}
+
+const SHORT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const LONG_DAYS = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+];
+
+function frequencySubtitle(habit: Habit): string {
+  const fixed = habit.fixedDays;
+  if (fixed && fixed.length === 1) {
+    return `Every ${LONG_DAYS[fixed[0]]}`;
+  }
+  if (fixed && fixed.length > 1 && fixed.length < 7) {
+    return fixed
+      .slice()
+      .sort((a, b) => a - b)
+      .map((d) => SHORT_DAYS[d])
+      .join(' · ');
+  }
+  if (habit.timesPerWeek === 7) return 'Every day';
+  return `${habit.timesPerWeek}× per week`;
 }
 
 function HabitRow({
@@ -222,23 +149,22 @@ function HabitRow({
   onLongPress: () => void;
   showTodayLabel?: boolean;
 }) {
-  const target = targetThisWeek(habit);
-  const count =
-    habit.frequencyKind === 'daily'
-      ? daysDoneThisWeek(habit, completions)
-      : countCompletionsThisWeek(habit, completions);
-  const checked =
-    habit.frequencyKind === 'daily' ? isDoneToday(habit, completions) : count >= target;
+  const checked = isDoneToday(habit, completions);
 
   return (
     <Animated.View entering={FadeIn.duration(180)}>
       <Pressable
         onPress={() => router.push({ pathname: '/habit-detail', params: { id: habit.id } })}
         className="px-4 py-3 pr-5 active:opacity-70">
-        <View className="flex-row items-center gap-3">
-          <Text className="flex-1 text-base" numberOfLines={1}>
-            {habit.title}
-          </Text>
+        <View className="flex-row items-start gap-2">
+          <View className="flex-1 flex-row flex-wrap items-baseline gap-x-2">
+            <Text className="text-base" numberOfLines={1}>
+              {habit.title}
+            </Text>
+            <Text variant="muted" className="text-xs">
+              {frequencySubtitle(habit)}
+            </Text>
+          </View>
           {showTodayLabel ? (
             <Text variant="muted" className="text-xs">
               Today
@@ -270,13 +196,15 @@ function DotStack({ habit, completions }: { habit: Habit; completions: HabitComp
 
   const groups = React.useMemo(() => {
     if (width <= 0) return [];
-    const today = startOfDay(new Date());
-    // Walk backward from today, day by day, until we'd exceed the available width.
+    // The big checkbox on the right represents today, so the dot strip
+    // ends at yesterday.
+    const yesterday = subDays(startOfDay(new Date()), 1);
+    // Walk backward from yesterday, day by day, until we'd exceed the available width.
     // Going from a Monday back to the prior Sunday crosses a week boundary, so add
     // the larger inter-week gap instead of the intra-week gap.
-    const days: Date[] = [today];
+    const days: Date[] = [yesterday];
     let used = DOT_PX;
-    let cursor = today;
+    let cursor = yesterday;
     for (let i = 0; i < 365; i++) {
       const wasMonday = cursor.getDay() === 1; // Mon = 1 with weekStartsOn=1
       const addWidth = (wasMonday ? INTER_WEEK_GAP_PX : INTRA_GAP_PX) + DOT_PX;

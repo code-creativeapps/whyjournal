@@ -46,7 +46,7 @@ export function SimpleItemRow(props: SimpleItemRowProps) {
               onPress={props.onToggle}
               hitSlop={8}
               className={cn(
-                'size-6 items-center justify-center rounded-md border-2',
+                'size-6 items-center justify-center rounded-full border-2',
                 props.done ? 'border-green-500 bg-green-500' : 'border-muted-foreground/40'
               )}>
               {props.done ? <Icon as={CheckIcon} size={14} className="text-white" /> : null}

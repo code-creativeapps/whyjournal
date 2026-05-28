@@ -3,6 +3,7 @@ import {
   endOfMonth,
   endOfWeek,
   format,
+  isSameMonth,
   startOfDay,
   startOfMonth,
   startOfWeek,
@@ -12,7 +13,6 @@ import { Stack, router, useLocalSearchParams } from 'expo-router';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
-  FlameIcon,
   LayersIcon,
   PencilIcon,
   RepeatIcon,
@@ -25,7 +25,7 @@ import Animated, { ZoomIn } from 'react-native-reanimated';
 
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { currentStreak } from '@/lib/habits/frequency';
+import { currentStreak, longestStreak } from '@/lib/habits/frequency';
 import type { Habit, HabitCompletion } from '@/lib/habits/types';
 import { useGoalsStore } from '@/lib/stores/goals';
 import { useHabitCompletionsStore } from '@/lib/stores/habit-completions';
@@ -63,6 +63,25 @@ export default function HabitDetailScreen() {
   if (!habit) return null;
 
   const streak = currentStreak(habit, completions);
+  const best = longestStreak(habit, completions);
+  const totalCount = completions.filter((c) => c.habitId === habit.id).length;
+  const today = startOfDay(new Date());
+  const monthStart = startOfMonth(today);
+  const habitDaysThisMonth = new Set<string>();
+  for (const c of completions) {
+    if (c.habitId !== habit.id) continue;
+    const d = startOfDay(new Date(c.completedAt));
+    if (isSameMonth(d, today)) habitDaysThisMonth.add(format(d, DAY_FORMAT));
+  }
+  const daysDoneThisMonth = habitDaysThisMonth.size;
+  const daysElapsedThisMonth =
+    Math.floor((today.getTime() - monthStart.getTime()) / 86400000) + 1;
+  const monthRatio =
+    daysElapsedThisMonth > 0
+      ? Math.min(daysDoneThisMonth / daysElapsedThisMonth, 1)
+      : 0;
+  const periodLabel = habit.timesPerWeek === 7 ? 'day' : 'wk';
+  const frequencyLabel = describeFrequency(habit);
 
   function handleToggleDay(day: Date, filled: boolean) {
     if (!habit) return;
@@ -98,63 +117,133 @@ export default function HabitDetailScreen() {
           ),
         }}
       />
-      <ScrollView contentContainerClassName="gap-6 px-6 pt-12 pb-10">
-        <View className="items-center gap-4">
-          <View className="size-20 items-center justify-center rounded-full bg-violet-500/15">
-            <Icon as={RepeatIcon} size={40} className="text-violet-500" />
+      <ScrollView contentContainerClassName="gap-5 px-6 pt-6 pb-10">
+        <View className="flex-row items-center gap-3">
+          <View className="size-12 items-center justify-center rounded-full bg-violet-500/15">
+            <Icon as={RepeatIcon} size={22} className="text-violet-500" />
           </View>
-          <Text variant="h2" className="text-center">
-            {habit.title}
-          </Text>
-          <Text variant="muted" className="text-center text-sm">
-            {habit.frequencyKind === 'daily'
-              ? `${habit.timesPerPeriod}× per day`
-              : `${habit.timesPerPeriod}× per week`}
-          </Text>
-          {routine || goal ? (
-            <View className="flex-row flex-wrap justify-center gap-2">
+          <View className="flex-1">
+            <Text variant="h3" numberOfLines={1}>
+              {habit.title}
+            </Text>
+            <View className="mt-1 flex-row flex-wrap items-center gap-x-2 gap-y-1">
+              <Text variant="muted" className="text-sm">
+                {frequencyLabel}
+              </Text>
+              {goal ? (
+                <Pressable
+                  onPress={() =>
+                    router.replace({ pathname: '/goal-detail', params: { id: goal.id } })
+                  }
+                  hitSlop={6}
+                  className="flex-row items-center gap-1 active:opacity-60">
+                  <Icon as={TargetIcon} size={12} className="text-red-500" />
+                  <Text variant="muted" className="text-xs" numberOfLines={1}>
+                    {goal.title}
+                  </Text>
+                </Pressable>
+              ) : null}
               {routine ? (
-                <View className="flex-row items-center gap-1.5 rounded-full bg-muted px-3 py-1">
-                  <Icon as={LayersIcon} size={13} className="text-muted-foreground" />
-                  <Text variant="small" className="text-sm text-muted-foreground">
+                <View className="flex-row items-center gap-1">
+                  <Icon as={LayersIcon} size={12} className="text-muted-foreground" />
+                  <Text variant="muted" className="text-xs" numberOfLines={1}>
                     {routine.title}
                   </Text>
                 </View>
               ) : null}
-              {goal ? (
-                <View className="flex-row items-center gap-1.5 rounded-full bg-red-500/10 px-3 py-1">
-                  <Icon as={TargetIcon} size={13} className="text-red-500" />
-                  <Text variant="small" className="text-sm text-red-600">
-                    {goal.title}
-                  </Text>
-                </View>
-              ) : null}
             </View>
-          ) : null}
+          </View>
         </View>
 
         {habit.body ? (
-          <Text className="text-center text-base leading-7 text-foreground">
-            {habit.body}
-          </Text>
+          <Text className="text-sm leading-6 text-muted-foreground">{habit.body}</Text>
         ) : null}
 
-        {streak > 0 ? (
-          <View className="flex-row justify-center">
-            <View className="flex-row items-center gap-1 rounded-full bg-orange-500/15 px-2.5 py-1">
-              <Icon as={FlameIcon} size={13} className="text-orange-500" />
-              <Text variant="small" className="text-xs font-semibold text-orange-600">
-                {streak}
-                {habit.frequencyKind === 'weekly' ? ' week' : ' day'}
-                {streak === 1 ? '' : 's'}
-              </Text>
-            </View>
+        <View className="flex-row gap-2">
+          <StatCard label="Streak" value={String(streak)} suffix={periodLabel} />
+          <StatCard label="Best" value={String(best)} suffix={periodLabel} />
+          <StatCard
+            label={format(today, 'MMM')}
+            value={String(daysDoneThisMonth)}
+            suffix={`/ ${daysElapsedThisMonth}`}
+          />
+          <StatCard label="Total" value={String(totalCount)} />
+        </View>
+
+        <View className="gap-1.5">
+          <View className="flex-row items-center justify-between">
+            <Text variant="muted" className="text-xs">
+              {format(today, 'MMMM')} progress
+            </Text>
+            <Text variant="muted" className="text-xs">
+              {Math.round(monthRatio * 100)}%
+            </Text>
           </View>
-        ) : null}
+          <View className="h-1.5 overflow-hidden rounded-full bg-muted">
+            <View
+              className="h-full rounded-full bg-green-500"
+              style={{ width: `${monthRatio * 100}%` }}
+            />
+          </View>
+        </View>
 
         <HistoryGrid habit={habit} completions={completions} onToggleDay={handleToggleDay} />
       </ScrollView>
     </>
+  );
+}
+
+const DAY_NAMES_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_NAMES_LONG = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+];
+
+function describeFrequency(habit: Habit): string {
+  const fixed = habit.fixedDays;
+  if (fixed && fixed.length === 1) {
+    return `Every ${DAY_NAMES_LONG[fixed[0]]}`;
+  }
+  if (fixed && fixed.length > 1 && fixed.length < 7) {
+    const days = fixed
+      .slice()
+      .sort((a, b) => a - b)
+      .map((d) => DAY_NAMES_SHORT[d])
+      .join(', ');
+    return `${days} · ${fixed.length}× per week`;
+  }
+  if (habit.timesPerWeek === 7) return 'Every day';
+  return `${habit.timesPerWeek}× per week`;
+}
+
+function StatCard({
+  label,
+  value,
+  suffix,
+}: {
+  label: string;
+  value: string;
+  suffix?: string;
+}) {
+  return (
+    <View className="flex-1 gap-0.5 rounded-2xl border border-border bg-background px-3 py-2.5">
+      <Text variant="muted" className="text-[10px] uppercase tracking-wide">
+        {label}
+      </Text>
+      <View className="flex-row items-baseline gap-1">
+        <Text className="text-xl font-semibold">{value}</Text>
+        {suffix ? (
+          <Text variant="muted" className="text-xs">
+            {suffix}
+          </Text>
+        ) : null}
+      </View>
+    </View>
   );
 }
 

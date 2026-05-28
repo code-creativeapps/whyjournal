@@ -1,18 +1,22 @@
 import type { BaseItem } from '@/lib/simple-items/factory';
 
-export type FrequencyKind = 'daily' | 'weekly';
-
 /**
  * Habit shape. `body` is the optional description.
  *
- * For daily habits: `daysOfWeek` (0=Sun..6=Sat) lists active days.
- * Length 7 means "every day". For weekly habits, daysOfWeek is ignored
- * (the user just wants to do it `timesPerPeriod` times in a week).
+ * `timesPerWeek` (1..7) is the only frequency dial. If `fixedDays` is set,
+ * the habit is scheduled on those specific weekdays (0=Sun..6=Sat); when
+ * `fixedDays` is omitted the habit can be done on any day of the week.
+ *
+ * Examples:
+ *   timesPerWeek=7                          → every day
+ *   timesPerWeek=3, fixedDays=[1,3,5]       → Mon/Wed/Fri
+ *   timesPerWeek=6                          → 6× per week, any day
+ *   timesPerWeek=1                          → once a week
+ *   timesPerWeek=1, fixedDays=[6]           → once a week, prefer Saturday
  */
 export type Habit = BaseItem & {
-  frequencyKind: FrequencyKind;
-  timesPerPeriod: number;
-  daysOfWeek: number[];
+  timesPerWeek: number;
+  fixedDays?: number[];
   routineId?: string;
   goalId?: string;
 };

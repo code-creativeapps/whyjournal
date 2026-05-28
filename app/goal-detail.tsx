@@ -987,14 +987,27 @@ function AttachHabitSheet({
 }
 
 function describeHabitFrequency(h: Habit): string {
-  const times =
-    h.timesPerPeriod === 1 ? '' : ` · ${h.timesPerPeriod}× per ${h.frequencyKind === 'daily' ? 'day' : 'week'}`;
   const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const days = h.daysOfWeek ?? [];
-  const everyDay = days.length === 0 || days.length === 7;
-  if (h.frequencyKind === 'daily') {
-    return `${everyDay ? 'Daily' : days.slice().sort((a, b) => a - b).map((d) => labels[d]).join(', ')}${times}`;
+  const long = [
+    'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+  ];
+  if (h.fixedDays && h.fixedDays.length === 1) {
+    return `Every ${long[h.fixedDays[0]]}`;
   }
-  if (everyDay) return `Weekly${times}`;
-  return `${days.slice().sort((a, b) => a - b).map((d) => labels[d]).join(', ')}${times}`;
+  if (h.fixedDays && h.fixedDays.length > 1 && h.fixedDays.length < 7) {
+    const days = h.fixedDays
+      .slice()
+      .sort((a, b) => a - b)
+      .map((d) => labels[d])
+      .join(', ');
+    return `${days} · ${h.fixedDays.length}× per week`;
+  }
+  if (h.timesPerWeek === 7) return 'Daily';
+  return `${h.timesPerWeek}× per week`;
 }

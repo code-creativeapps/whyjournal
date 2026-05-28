@@ -24,11 +24,18 @@ function fromRow(row: Record<string, unknown>): HabitCompletion {
   };
 }
 
+let cachedUserId: string | null = null;
 async function getUserId(): Promise<string> {
+  if (cachedUserId) return cachedUserId;
   const { data, error } = await supabase.auth.getUser();
   if (error) throw error;
   if (!data.user) throw new Error('Not signed in');
-  return data.user.id;
+  cachedUserId = data.user.id;
+  return cachedUserId;
+}
+
+function tempId(): string {
+  return `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 export const useHabitCompletionsStore = create<State>((set, get) => ({
@@ -46,32 +53,47 @@ export const useHabitCompletionsStore = create<State>((set, get) => ({
   },
 
   reset() {
+    cachedUserId = null;
     set({ items: [], hydrated: false });
   },
 
   async addCompletion(habitId, completedAt) {
-    const userId = await getUserId();
-    const row: Record<string, unknown> = { habit_id: habitId, user_id: userId };
-    if (completedAt) row.completed_at = completedAt;
-    const { data, error } = await supabase
-      .from('habit_completions')
-      .insert(row)
-      .select()
-      .single();
-    if (error) throw error;
-    const completion = fromRow(data as Record<string, unknown>);
-    set((state) => ({ items: [completion, ...state.items] }));
-    return completion;
+    // Optimistic: insert immediately with a temp id, reconcile in background.
+    const optimistic: HabitCompletion = {
+      id: tempId(),
+      habitId,
+      completedAt: completedAt ?? new Date().toISOString(),
+    };
+    set((state) => ({ items: [optimistic, ...state.items] }));
+
+    (async () => {
+      try {
+        const userId = await getUserId();
+        const row: Record<string, unknown> = { habit_id: habitId, user_id: userId };
+        if (completedAt) row.completed_at = completedAt;
+        const { data, error } = await supabase
+          .from('habit_completions')
+          .insert(row)
+          .select()
+          .single();
+        if (error) throw error;
+        const saved = fromRow(data as Record<string, unknown>);
+        set((state) => ({
+          items: state.items.map((c) => (c.id === optimistic.id ? saved : c)),
+        }));
+      } catch {
+        // Roll back the optimistic insert.
+        set((state) => ({ items: state.items.filter((c) => c.id !== optimistic.id) }));
+      }
+    })();
+
+    return optimistic;
   },
 
   async removeLatest(habitId) {
-    // Find latest in local state for this habit.
-    const items = get().items;
-    const latest = items.find((c) => c.habitId === habitId);
+    const latest = get().items.find((c) => c.habitId === habitId);
     if (!latest) return;
-    const { error } = await supabase.from('habit_completions').delete().eq('id', latest.id);
-    if (error) throw error;
-    set((state) => ({ items: state.items.filter((c) => c.id !== latest.id) }));
+    removeOptimistically(set, latest);
   },
 
   async removeOnDay(habitId, day) {
@@ -79,15 +101,29 @@ export const useHabitCompletionsStore = create<State>((set, get) => ({
     start.setHours(0, 0, 0, 0);
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
-    const items = get().items;
-    const match = items.find((c) => {
+    const match = get().items.find((c) => {
       if (c.habitId !== habitId) return false;
       const t = new Date(c.completedAt).getTime();
       return t >= start.getTime() && t < end.getTime();
     });
     if (!match) return;
-    const { error } = await supabase.from('habit_completions').delete().eq('id', match.id);
-    if (error) throw error;
-    set((state) => ({ items: state.items.filter((c) => c.id !== match.id) }));
+    removeOptimistically(set, match);
   },
 }));
+
+function removeOptimistically(
+  set: (fn: (s: State) => Partial<State>) => void,
+  item: HabitCompletion
+) {
+  // Optimistic: drop from state now, delete on the server in the background.
+  set((state) => ({ items: state.items.filter((c) => c.id !== item.id) }));
+  // A temp row that never reached the server has nothing to delete.
+  if (item.id.startsWith('temp-')) return;
+  (async () => {
+    const { error } = await supabase.from('habit_completions').delete().eq('id', item.id);
+    if (error) {
+      // Roll back the optimistic removal.
+      set((state) => ({ items: [item, ...state.items] }));
+    }
+  })();
+}

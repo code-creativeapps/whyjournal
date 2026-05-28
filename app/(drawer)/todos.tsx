@@ -1,5 +1,6 @@
 import { format, parseISO } from 'date-fns';
 import { router } from 'expo-router';
+import { DiamondIcon, LayersIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { SectionList, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +9,7 @@ import { Fab } from '@/components/fab';
 import { SimpleItemRow } from '@/components/simple-item-row';
 import { SwipeableRow } from '@/components/swipeable-row';
 import { SwipeableScreen } from '@/components/swipeable-screen';
+import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { celebrateTodoCheck } from '@/lib/celebrate';
 import { GoalIcon } from '@/lib/goals/icon';
@@ -73,35 +75,42 @@ export default function TodosScreen() {
   const sections = React.useMemo(() => buildSections(items), [items]);
   const todayKey = React.useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
 
-  function parentDisplay(
-    todo: Todo
-  ): { icon: string | undefined; name: string } | undefined {
+  type Parent =
+    | { kind: 'project'; name: string }
+    | { kind: 'milestone'; name: string }
+    | { kind: 'goal'; name: string; icon?: string };
+
+  function parentDisplay(todo: Todo): Parent | undefined {
     if (todo.projectId) {
       const p = projects.find((x) => x.id === todo.projectId);
-      if (p) {
-        // Project inherits its parent goal's icon for visual continuity.
-        const parentGoal = goals.find((x) => x.id === p.goalId);
-        return { icon: parentGoal?.icon, name: p.title };
-      }
+      if (p) return { kind: 'project', name: p.title };
     }
     if (todo.milestoneId) {
       const m = milestones.find((x) => x.id === todo.milestoneId);
-      if (m) {
-        const parentGoal = goals.find((x) => x.id === m.goalId);
-        return { icon: parentGoal?.icon, name: m.title };
-      }
+      if (m) return { kind: 'milestone', name: m.title };
     }
     if (todo.goalId) {
       const g = goals.find((x) => x.id === todo.goalId);
-      if (g) return { icon: g.icon, name: g.title };
+      if (g) return { kind: 'goal', name: g.title, icon: g.icon };
     }
     return undefined;
+  }
+
+  function parentLeading(parent: Parent): React.ReactNode {
+    if (parent.kind === 'project') {
+      return <Icon as={LayersIcon} size={12} className="text-muted-foreground" />;
+    }
+    if (parent.kind === 'milestone') {
+      return <Icon as={DiamondIcon} size={12} className="text-orange-500" />;
+    }
+    return <GoalIcon icon={parent.icon} size={12} className="text-red-500" />;
   }
 
   function combinedSubtitle(todo: Todo): string | undefined {
     const due = dueSubtitle(todo, todayKey);
     const parent = parentDisplay(todo);
-    return [due, parent?.name].filter(Boolean).join(' · ') || undefined;
+    // Parent name first (next to its icon), then the due metadata.
+    return [parent?.name, due].filter(Boolean).join(' · ') || undefined;
   }
 
   return (
@@ -135,15 +144,10 @@ export default function TodosScreen() {
                   kind="checkbox"
                   title={item.title}
                   subtitle={combinedSubtitle(item)}
-                  subtitleLeading={
-                    parentDisplay(item) ? (
-                      <GoalIcon
-                        icon={parentDisplay(item)?.icon}
-                        size={12}
-                        className="text-red-500"
-                      />
-                    ) : null
-                  }
+                  subtitleLeading={(() => {
+                    const parent = parentDisplay(item);
+                    return parent ? parentLeading(parent) : null;
+                  })()}
                   done={item.done}
                   onToggle={() => {
                     if (!item.done) celebrateTodoCheck();

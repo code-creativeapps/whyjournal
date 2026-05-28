@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
-import type { FrequencyKind, Habit } from '@/lib/habits/types';
+import type { Habit } from '@/lib/habits/types';
 import { useGoalsStore } from '@/lib/stores/goals';
 import { useHabitsStore } from '@/lib/stores/habits';
 import { useRoutinesStore } from '@/lib/stores/routines';
@@ -44,42 +44,31 @@ export default function HabitFormScreen() {
 
   const [title, setTitle] = React.useState(existing?.title ?? '');
   const [body, setBody] = React.useState(existing?.body ?? '');
-  // Soft migration: a legacy row stored as `daily` with a subset of
-  // daysOfWeek (e.g. M/W/F) now belongs in weekly mode under the new
-  // semantics ("daily" = every day; "weekly" = pick the days).
-  const initialKind: FrequencyKind = (() => {
-    if (!existing) return 'daily';
-    if (
-      existing.frequencyKind === 'daily' &&
-      existing.daysOfWeek.length > 0 &&
-      existing.daysOfWeek.length < 7
-    ) {
-      return 'weekly';
-    }
-    return existing.frequencyKind;
-  })();
-  const [frequencyKind, setFrequencyKind] = React.useState<FrequencyKind>(initialKind);
-  const [count, setCount] = React.useState<string>(
-    String(existing?.timesPerPeriod ?? 1)
+  const [timesPerWeek, setTimesPerWeek] = React.useState<number>(
+    existing?.timesPerWeek ?? 7
   );
-  const [daysOfWeek, setDaysOfWeek] = React.useState<number[]>(() => {
-    if (!existing) return [];
-    if (existing.frequencyKind === 'daily' && existing.daysOfWeek.length === 7) return [];
-    return existing.daysOfWeek;
-  });
+  const [fixedDays, setFixedDays] = React.useState<number[]>(existing?.fixedDays ?? []);
   const [routineId, setRoutineId] = React.useState<string | undefined>(existing?.routineId);
   const [goalId, setGoalId] = React.useState<string | undefined>(
     existing?.goalId ?? prefillGoalId
   );
   const [saving, setSaving] = React.useState(false);
 
-  const parsedCount = Math.max(1, parseInt(count, 10) || 1);
   const canSave = title.trim().length > 0 && !saving;
 
+  function setCount(n: number) {
+    setTimesPerWeek(n);
+    setFixedDays([]);
+  }
+
   function toggleDay(d: number) {
-    setDaysOfWeek((prev) =>
-      prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()
-    );
+    setFixedDays((prev) => {
+      const next = prev.includes(d)
+        ? prev.filter((x) => x !== d)
+        : [...prev, d].sort((a, b) => a - b);
+      if (next.length > 0) setTimesPerWeek(next.length);
+      return next;
+    });
   }
 
   function handleAddRoutine() {
@@ -106,11 +95,10 @@ export default function HabitFormScreen() {
     const payload: Partial<Habit> = {
       title: title.trim(),
       body: body.trim() || undefined,
-      frequencyKind,
-      timesPerPeriod: parsedCount,
-      daysOfWeek: frequencyKind === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : daysOfWeek,
-      routineId: routineId,
-      goalId: goalId,
+      timesPerWeek,
+      fixedDays: fixedDays.length > 0 ? fixedDays : undefined,
+      routineId,
+      goalId,
     };
     try {
       if (isEditing && id) {
@@ -138,6 +126,17 @@ export default function HabitFormScreen() {
       },
     ]);
   }
+
+  const summary =
+    fixedDays.length > 0
+      ? `${fixedDays
+          .slice()
+          .sort((a, b) => a - b)
+          .map((d) => DAY_LABELS[d])
+          .join(', ')} · ${fixedDays.length}× per week`
+      : timesPerWeek === 7
+        ? 'Every day'
+        : `${timesPerWeek}× per week, any day`;
 
   return (
     <>
@@ -190,48 +189,36 @@ export default function HabitFormScreen() {
             />
           </Field>
 
-          <Field label="Frequency" hint="How often you want to do it.">
+          <Field label="Frequency" hint="How many times you want to do it per week.">
             <View className="gap-3">
-              <View className="flex-row gap-2">
-                <FreqChip
-                  active={frequencyKind === 'daily'}
-                  label="Per day"
-                  onPress={() => setFrequencyKind('daily')}
-                />
-                <FreqChip
-                  active={frequencyKind === 'weekly'}
-                  label="Per week"
-                  onPress={() => setFrequencyKind('weekly')}
-                />
+              <View className="flex-row gap-1.5">
+                {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+                  <CountChip
+                    key={n}
+                    label={String(n)}
+                    active={timesPerWeek === n && fixedDays.length === 0}
+                    onPress={() => setCount(n)}
+                  />
+                ))}
               </View>
-              <View className="flex-row items-center gap-2">
-                <Input
-                  value={count}
-                  onChangeText={setCount}
-                  keyboardType="number-pad"
-                  className="w-20 text-center"
-                />
-                <Text variant="muted" className="text-base">
-                  {frequencyKind === 'daily' ? 'time(s) per day' : 'time(s) per week'}
+              <Text variant="muted" className="text-xs">
+                {summary}
+              </Text>
+              <View className="gap-1.5">
+                <Text variant="muted" className="text-xs">
+                  Specific days (optional)
                 </Text>
-              </View>
-              {frequencyKind === 'weekly' ? (
-                <View className="gap-1.5">
-                  <Text variant="muted" className="text-xs">
-                    Specific days (optional)
-                  </Text>
-                  <View className="flex-row gap-1.5">
-                    {DAY_LABELS.map((label, i) => (
-                      <DayChip
-                        key={i}
-                        label={label}
-                        active={daysOfWeek.includes(i)}
-                        onPress={() => toggleDay(i)}
-                      />
-                    ))}
-                  </View>
+                <View className="flex-row gap-1.5">
+                  {DAY_LABELS.map((label, i) => (
+                    <DayChip
+                      key={i}
+                      label={label}
+                      active={fixedDays.includes(i)}
+                      onPress={() => toggleDay(i)}
+                    />
+                  ))}
                 </View>
-              ) : null}
+              </View>
             </View>
           </Field>
 
@@ -313,7 +300,7 @@ function Field({
   );
 }
 
-function FreqChip({
+function CountChip({
   label,
   active,
   onPress,
@@ -326,14 +313,11 @@ function FreqChip({
     <Pressable
       onPress={onPress}
       className={cn(
-        'flex-1 items-center rounded-full border px-4 py-2',
-        active ? 'border-violet-500 bg-violet-500/10' : 'border-border bg-background'
+        'h-9 flex-1 items-center justify-center rounded-full border',
+        active ? 'border-violet-500 bg-violet-500' : 'border-border bg-background'
       )}>
       <Text
-        className={cn(
-          'text-sm font-medium',
-          active ? 'text-violet-700' : 'text-foreground'
-        )}>
+        className={cn('text-sm font-semibold', active ? 'text-white' : 'text-foreground')}>
         {label}
       </Text>
     </Pressable>
