@@ -49,6 +49,7 @@ import { GoalIconCircle } from '@/lib/goals/icon';
 import { goalProgress } from '@/lib/goals/progress';
 import { goalVelocity } from '@/lib/goals/velocity';
 import type { Habit } from '@/lib/habits/types';
+import { ensureMonthlyMilestones, monthLabel } from '@/lib/milestones/monthly';
 import { useGoalImagesStore } from '@/lib/stores/goal-images';
 import { useGoalsStore } from '@/lib/stores/goals';
 import { useHabitCompletionsStore } from '@/lib/stores/habit-completions';
@@ -70,6 +71,7 @@ export default function GoalDetailScreen() {
   );
   const updateGoal = useGoalsStore((state) => state.updateItem);
   const allMilestones = useMilestonesStore((state) => state.items);
+  const addMilestone = useMilestonesStore((state) => state.addItem);
   const allTodos = useTodosStore((state) => state.items);
   const allHabits = useHabitsStore((state) => state.items);
   const allHabitCompletions = useHabitCompletionsStore((state) => state.items);
@@ -93,6 +95,13 @@ export default function GoalDetailScreen() {
     () => (goal ? goalProgress(goal, milestones) : null),
     [goal, milestones]
   );
+
+  // Spawn the current month's instance for any monthly milestone series.
+  React.useEffect(() => {
+    if (!id) return;
+    const mine = useMilestonesStore.getState().items.filter((m) => m.goalId === id);
+    ensureMonthlyMilestones(mine, addMilestone);
+  }, [id, addMilestone]);
 
   const goalImages = React.useMemo(() => {
     if (!id) return [];
@@ -727,13 +736,21 @@ function MilestonesTab({
                         className={m.done ? 'text-white' : 'text-orange-500'}
                       />
                     </View>
-                    <Text
-                      className={cn(
-                        'flex-1 text-base',
-                        m.done && 'text-muted-foreground line-through'
-                      )}>
-                      {m.title}
-                    </Text>
+                    <View className="flex-1 flex-row items-center gap-2">
+                      <Text
+                        className={cn(
+                          'shrink text-base',
+                          m.done && 'text-muted-foreground line-through'
+                        )}
+                        numberOfLines={1}>
+                        {m.title}
+                      </Text>
+                      {m.monthly && m.periodMonth ? (
+                        <Text variant="muted" className="text-xs">
+                          {monthLabel(m.periodMonth)}
+                        </Text>
+                      ) : null}
+                    </View>
                   </Pressable>
                 </React.Fragment>
               ))}

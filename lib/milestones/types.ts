@@ -8,4 +8,10 @@ export type Milestone = BaseItem & {
   body?: string;
   targetDate?: string;
   reward?: string;
+  /** Recurring monthly target. */
+  monthly?: boolean;
+  /** YYYY-MM this instance represents (monthly only). */
+  periodMonth?: string;
+  /** Groups the monthly instances of the same recurring target. */
+  seriesId?: string;
 };

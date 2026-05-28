@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { Trash2Icon } from 'lucide-react-native';
 import * as React from 'react';
@@ -7,6 +8,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Switch,
   TextInput,
   View,
 } from 'react-native';
@@ -33,6 +35,7 @@ export default function MilestoneFormScreen() {
   const [body, setBody] = React.useState(existing?.body ?? '');
   const [targetDate, setTargetDate] = React.useState(existing?.targetDate ?? '');
   const [reward, setReward] = React.useState(existing?.reward ?? '');
+  const [monthly, setMonthly] = React.useState(existing?.monthly ?? false);
   const [saving, setSaving] = React.useState(false);
 
   const canSave = title.trim().length > 0 && !saving;
@@ -45,6 +48,7 @@ export default function MilestoneFormScreen() {
       body: body.trim() || undefined,
       targetDate: targetDate.trim() || undefined,
       reward: reward.trim() || undefined,
+      monthly,
     };
     try {
       if (isEditing && id) {
@@ -58,6 +62,10 @@ export default function MilestoneFormScreen() {
           ...payload,
           goalId: parentGoalId,
           done: false,
+          periodMonth: monthly ? format(new Date(), 'yyyy-MM') : undefined,
+          seriesId: monthly
+            ? `series-${Date.now()}-${Math.random().toString(36).slice(2)}`
+            : undefined,
         } as Omit<Milestone, 'id' | 'createdAt'>);
       }
       router.back();
@@ -130,6 +138,15 @@ export default function MilestoneFormScreen() {
               textAlignVertical="top"
               className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-base text-foreground"
             />
+          </Field>
+
+          <Field
+            label="Monthly target"
+            hint="Resets each month — a new instance is created automatically.">
+            <View className="flex-row items-center justify-between rounded-md border border-input bg-background px-3 py-2">
+              <Text className="text-base">Repeat every month</Text>
+              <Switch value={monthly} onValueChange={setMonthly} />
+            </View>
           </Field>
 
           <Field label="Target date" hint="Optional — soft deadline keeps things honest.">

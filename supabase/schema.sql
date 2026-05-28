@@ -58,6 +58,7 @@ create table if not exists public.goals (
   target_date text,
   icon text,
   is_cornerstone boolean not null default false,
+  is_priority boolean not null default false,
   position int not null default 0,
   done boolean not null default false,
   completed_at timestamptz,
@@ -82,10 +83,17 @@ create table if not exists public.milestones (
   done boolean not null default false,
   completed_at timestamptz,
   position int not null default 0,
+  -- Monthly (recurring) milestones: `monthly` flags the series, `period_month`
+  -- (YYYY-MM) is the month a given instance represents, `series_id` groups the
+  -- monthly instances of the same recurring target.
+  monthly boolean not null default false,
+  period_month text,
+  series_id text,
   created_at timestamptz not null default now()
 );
 create index if not exists milestones_user_idx on public.milestones (user_id);
 create index if not exists milestones_goal_idx on public.milestones (goal_id);
+create index if not exists milestones_series_idx on public.milestones (series_id);
 
 -- =============================================================================
 -- goal_images (photo attachments per goal — uploads or stock-API URLs)

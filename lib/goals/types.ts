@@ -8,6 +8,7 @@ export type Goal = BaseItem & {
   reward?: string;
   icon?: string;
   isCornerstone?: boolean;
+  isPriority?: boolean;
   position?: number;
 };
 

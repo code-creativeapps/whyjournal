@@ -51,6 +51,7 @@ export default function GoalFormScreen() {
   const existing = useGoalsStore((state) =>
     id ? (state.items.find((g) => g.id === id) as Goal | undefined) : undefined
   );
+  const allGoals = useGoalsStore((state) => state.items);
   const addGoal = useGoalsStore((state) => state.addItem);
   const updateGoal = useGoalsStore((state) => state.updateItem);
   const deleteGoal = useGoalsStore((state) => state.deleteItem);
@@ -93,6 +94,20 @@ export default function GoalFormScreen() {
   const initialCornerstoneRef = React.useRef<boolean>(
     Boolean(existing?.isCornerstone)
   );
+  const [isPriority, setIsPriority] = React.useState<boolean>(
+    Boolean(existing?.isPriority)
+  );
+
+  // Priorities = cornerstone + up to N prioritized goals, capped so the top
+  // list holds at most 3: 2 extra alongside a cornerstone, or 3 if there's
+  // no cornerstone.
+  const cornerstoneExists =
+    isCornerstone || allGoals.some((g) => g.id !== id && g.isCornerstone);
+  const otherPriorityCount = allGoals.filter(
+    (g) => g.id !== id && g.isPriority
+  ).length;
+  const priorityCap = cornerstoneExists ? 2 : 3;
+  const priorityAtCap = !isPriority && otherPriorityCount >= priorityCap;
   const iconPickerRef = React.useRef<BottomSheetModal>(null);
   const [showTitleExamples, setShowTitleExamples] = React.useState(false);
   const [milestones, setMilestones] = React.useState<MilestoneDraft[]>(() =>
@@ -143,6 +158,9 @@ export default function GoalFormScreen() {
         targetDate: targetDate.trim() || undefined,
         icon: (icon ?? null) as string | undefined,
         done: existing?.done ?? false,
+        // A cornerstone is already in the Priorities list, so it never also
+        // carries the priority flag.
+        isPriority: isCornerstone ? false : isPriority,
       };
 
       let goalId: string;
@@ -342,6 +360,25 @@ export default function GoalFormScreen() {
               <Switch value={isCornerstone} onValueChange={setIsCornerstone} />
             </View>
           </Field>
+
+          {!isCornerstone ? (
+            <Field
+              label="Priority goal"
+              hint={
+                priorityAtCap
+                  ? `You already have ${priorityCap} priority goals — unprioritize one first.`
+                  : 'Pin this to your Priorities list, alongside the cornerstone.'
+              }>
+              <View className="flex-row items-center justify-between rounded-md border border-input bg-background px-3 py-2">
+                <Text className="text-base">{isPriority ? 'Prioritized' : 'Off'}</Text>
+                <Switch
+                  value={isPriority}
+                  onValueChange={setIsPriority}
+                  disabled={priorityAtCap}
+                />
+              </View>
+            </Field>
+          ) : null}
 
           <Field
             label="Vivid description"

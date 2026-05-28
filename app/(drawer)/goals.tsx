@@ -17,7 +17,7 @@ import {
   TargetIcon,
 } from 'lucide-react-native';
 import * as React from 'react';
-import { FlatList, Pressable, View } from 'react-native';
+import { FlatList, Pressable, SectionList, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fab } from '@/components/fab';
@@ -303,6 +303,65 @@ function GoalsList({
           What you&apos;re working on now, big or small.
         </Text>
       </View>
+    );
+  }
+
+  const renderStaticRow = (item: Goal, showSeparator: boolean) => (
+    <View key={item.id}>
+      {showSeparator ? <View className="h-px bg-border" /> : null}
+      <SwipeableRow
+        onEdit={() => router.push({ pathname: '/goal', params: { id: item.id } })}
+        onDelete={() => onDeleteGoal(item.id)}
+        deleteConfirmTitle="Delete goal"
+        deleteConfirmBody="Linked milestones will be removed too. This cannot be undone.">
+        <GoalListItem
+          goal={item}
+          milestones={milestonesByGoal.get(item.id) ?? []}
+          expanded={expanded.has(item.id)}
+          onToggleExpand={() => onToggleExpand(item.id)}
+          isCornerstone={Boolean(item.isCornerstone)}
+        />
+      </SwipeableRow>
+    </View>
+  );
+
+  // Normal mode: split into Priorities (cornerstone + prioritized) and
+  // Secondary. Reorder mode keeps a single flat draggable list.
+  if (!reorderMode) {
+    const priorities = goals.filter((g) => g.isCornerstone || g.isPriority);
+    priorities.sort((a, b) => {
+      if (Boolean(a.isCornerstone) !== Boolean(b.isCornerstone)) {
+        return a.isCornerstone ? -1 : 1;
+      }
+      return 0;
+    });
+    const secondary = goals.filter((g) => !g.isCornerstone && !g.isPriority);
+
+    const sections: { title: string; data: Goal[] }[] = [];
+    if (priorities.length > 0) {
+      sections.push({ title: 'Priorities', data: priorities });
+      sections.push({ title: 'Secondary', data: secondary });
+    } else {
+      sections.push({ title: '', data: secondary });
+    }
+
+    return (
+      <SectionList
+        sections={sections}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item, index }) => renderStaticRow(item, index > 0)}
+        renderSectionHeader={({ section }) =>
+          section.title ? (
+            <View className="bg-background px-4 pb-1 pt-4">
+              <Text variant="small" className="text-muted-foreground">
+                {section.title}
+              </Text>
+            </View>
+          ) : null
+        }
+        stickySectionHeadersEnabled={false}
+        contentContainerStyle={{ paddingBottom }}
+      />
     );
   }
 
