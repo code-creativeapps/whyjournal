@@ -91,6 +91,12 @@ export default function SignInScreen() {
             <Text>{submitting ? 'Signing in…' : 'Sign in'}</Text>
           </Button>
 
+          <Pressable onPress={() => router.push('/forgot-password')} className="self-center">
+            <Text variant="muted" className="text-sm">
+              Forgot password?
+            </Text>
+          </Pressable>
+
           {error ? (
             <View className="flex-row items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4">
               <Icon as={AlertCircleIcon} size={18} className="text-destructive" />

@@ -1,5 +1,5 @@
 {
-  "name": "5min-journal",
+  "name": "loghero",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
@@ -25,6 +25,7 @@
     "date-fns": "^4.1.0",
     "expo": "~54.0.33",
     "expo-audio": "~1.1.1",
+    "expo-build-properties": "~1.0.10",
     "expo-constants": "~18.0.13",
     "expo-file-system": "~19.0.22",
     "expo-haptics": "~15.0.8",

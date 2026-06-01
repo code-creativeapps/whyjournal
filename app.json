@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "5 Minute Journal",
-    "slug": "5min-journal",
+    "name": "LogHero",
+    "slug": "loghero",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "fivemin",
+    "scheme": "loghero",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash.png",
@@ -16,13 +16,17 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.loghero.app",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.loghero.app",
+      "versionCode": 1
     },
     "web": {
       "bundler": "metro",
@@ -33,7 +37,15 @@
       "expo-router",
       "expo-audio",
       "expo-web-browser",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

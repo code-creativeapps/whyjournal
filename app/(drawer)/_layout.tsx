@@ -12,10 +12,12 @@ import {
   type LucideIcon,
   QuoteIcon,
   RepeatIcon,
+  SettingsIcon,
   StarIcon,
   TargetIcon,
   TrophyIcon,
 } from 'lucide-react-native';
+import * as React from 'react';
 import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -25,6 +27,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuthStore } from '@/lib/stores/auth';
 import { useOnboardingStore } from '@/lib/stores/onboarding';
+import { useSettingsStore } from '@/lib/stores/settings';
 import { THEME } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
@@ -86,8 +89,8 @@ const SECTIONS: Section[] = [
     name: 'habits',
     label: 'Habits',
     icon: RepeatIcon,
-    bgClass: 'bg-violet-500/15',
-    iconColorClass: 'text-violet-500',
+    bgClass: 'bg-purple-600/15',
+    iconColorClass: 'text-purple-600',
   },
   {
     name: 'trophies',
@@ -105,19 +108,32 @@ const SECTIONS: Section[] = [
   },
 ];
 
-const METRICS_ITEM: Section = {
-  name: 'metrics',
-  label: 'Metrics',
-  icon: BarChart3Icon,
-  bgClass: 'bg-pink-500/15',
-  iconColorClass: 'text-pink-500',
-};
+const BOTTOM_ITEMS: Section[] = [
+  {
+    name: 'metrics',
+    label: 'Metrics',
+    icon: BarChart3Icon,
+    bgClass: 'bg-pink-500/15',
+    iconColorClass: 'text-pink-500',
+  },
+  {
+    name: 'settings',
+    label: 'Settings',
+    icon: SettingsIcon,
+    bgClass: 'bg-muted',
+    iconColorClass: 'text-muted-foreground',
+  },
+];
 
 export default function DrawerLayout() {
   const session = useAuthStore((s) => s.session);
   const authLoading = useAuthStore((s) => s.loading);
   const hydrated = useOnboardingStore((s) => s.hydrated);
   const completed = useOnboardingStore((s) => s.completed);
+
+  React.useEffect(() => {
+    useSettingsStore.getState().hydrate();
+  }, []);
 
   if (authLoading) return null;
   if (!session) return <Redirect href="/sign-in" />;
@@ -155,6 +171,7 @@ export default function DrawerLayout() {
       <Drawer.Screen name="trophies" options={{ title: 'Trophies' }} />
       <Drawer.Screen name="todos" options={{ title: 'Todos' }} />
       <Drawer.Screen name="metrics" options={{ title: 'Metrics' }} />
+      <Drawer.Screen name="settings" options={{ title: 'Settings' }} />
     </Drawer>
   );
 }
@@ -180,11 +197,16 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
         ))}
       </DrawerContentScrollView>
       <View className="border-t border-border" style={{ paddingBottom: insets.bottom }}>
-        <DrawerRow
-          section={METRICS_ITEM}
-          active={activeRoute === METRICS_ITEM.name}
-          onPress={() => props.navigation.navigate(METRICS_ITEM.name)}
-        />
+        {BOTTOM_ITEMS.map((item, idx) => (
+          <View key={item.name}>
+            {idx > 0 ? <View className="h-px bg-border" /> : null}
+            <DrawerRow
+              section={item}
+              active={activeRoute === item.name}
+              onPress={() => props.navigation.navigate(item.name)}
+            />
+          </View>
+        ))}
       </View>
     </View>
   );
