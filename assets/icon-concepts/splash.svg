@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Transparent canvas with the arrow centered, smaller than the icon so
+       it reads as a logo on the violet splash background (set in app.json). -->
+  <g fill="none" stroke="#ffffff" stroke-width="66"
+     stroke-linecap="round" stroke-linejoin="round"
+     transform="translate(204 204) scale(0.6)">
+    <path d="M180 700 L436 444 L544 552 L820 276"/>
+    <path d="M620 276 L820 276 L820 476"/>
+  </g>
+</svg>

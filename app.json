@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/images/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#8b5cf6"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -18,15 +18,19 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.loghero.app",
-      "buildNumber": "1"
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "LogHero needs access to your photos so you can attach images to your goals."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#8b5cf6"
       },
       "package": "com.loghero.app",
-      "versionCode": 1
+      "versionCode": 1,
+      "permissions": ["READ_MEDIA_IMAGES", "READ_EXTERNAL_STORAGE"]
     },
     "web": {
       "bundler": "metro",

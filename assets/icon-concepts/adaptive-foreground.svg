@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Transparent background. The arrow paths are the same as the master icon
+       but scaled to 0.75 and centered, so they fit inside Android's 66% safe
+       zone with comfortable padding. Adaptive icon's solid violet comes from
+       the platform layer (configured in app.json). -->
+  <g fill="none" stroke="#ffffff" stroke-width="82"
+     stroke-linecap="round" stroke-linejoin="round"
+     transform="translate(128 128) scale(0.75)">
+    <path d="M180 700 L436 444 L544 552 L820 276"/>
+    <path d="M620 276 L820 276 L820 476"/>
+  </g>
+</svg>

@@ -1,9 +1,20 @@
+import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { ExternalLinkIcon, Trash2Icon } from 'lucide-react-native';
+import { Platform } from 'react-native';
 import * as React from 'react';
 import { Alert, Linking, Pressable, ScrollView, Switch, View } from 'react-native';
 
 const PRIVACY_POLICY_URL = 'https://www.creativeapps.studio/privacy';
+
+function appVersionLabel(): string {
+  const version = Constants.expoConfig?.version ?? '0.0.0';
+  const build =
+    Platform.OS === 'ios'
+      ? Constants.expoConfig?.ios?.buildNumber
+      : String(Constants.expoConfig?.android?.versionCode ?? '');
+  return build ? `${version} (${build})` : version;
+}
 
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -64,6 +75,12 @@ export default function SettingsScreen() {
           <Text className="text-base">Privacy policy</Text>
           <Icon as={ExternalLinkIcon} size={16} className="text-muted-foreground" />
         </Pressable>
+        <View className="flex-row items-center justify-between gap-3 rounded-md border border-input bg-background px-3 py-3">
+          <Text className="text-base">Version</Text>
+          <Text variant="muted" className="text-sm">
+            {appVersionLabel()}
+          </Text>
+        </View>
       </View>
 
       <View className="gap-1.5">
