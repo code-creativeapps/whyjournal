@@ -1,6 +1,6 @@
-import { AppleIcon } from 'lucide-react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import * as React from 'react';
-import { Alert, Pressable, View } from 'react-native';
+import { Alert, Platform, Pressable, View, useColorScheme } from 'react-native';
 
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 
 export function OAuthButtons({ disabled }: { disabled?: boolean }) {
   const [busy, setBusy] = React.useState<'apple' | 'google' | null>(null);
+  const colorScheme = useColorScheme();
 
   async function handle(provider: 'apple' | 'google') {
     if (busy) return;
@@ -20,6 +21,10 @@ export function OAuthButtons({ disabled }: { disabled?: boolean }) {
         await useAuthStore.getState().signInWithGoogle();
       }
     } catch (err) {
+      // User-cancelled native Apple sign-in surfaces as a specific error code
+      // we just swallow.
+      const code = (err as { code?: string })?.code;
+      if (code === 'ERR_REQUEST_CANCELED') return;
       const message = err instanceof Error ? err.message : 'Sign-in failed';
       Alert.alert('Sign-in failed', message);
     } finally {
@@ -27,15 +32,26 @@ export function OAuthButtons({ disabled }: { disabled?: boolean }) {
     }
   }
 
+  // Apple's HIG requires their official button when offering Sign in with
+  // Apple on iOS, so we render the native one there.
+  const appleButton =
+    Platform.OS === 'ios' ? (
+      <AppleAuthentication.AppleAuthenticationButton
+        buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+        buttonStyle={
+          colorScheme === 'dark'
+            ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+            : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+        }
+        cornerRadius={22}
+        style={{ height: 44, width: '100%' }}
+        onPress={() => handle('apple')}
+      />
+    ) : null;
+
   return (
     <View className="gap-2">
-      <ProviderButton
-        onPress={() => handle('apple')}
-        disabled={disabled || busy !== null}
-        loading={busy === 'apple'}
-        label="Continue with Apple"
-        renderIcon={() => <Icon as={AppleIcon} size={18} className="text-foreground" />}
-      />
+      {appleButton}
       <ProviderButton
         onPress={() => handle('google')}
         disabled={disabled || busy !== null}

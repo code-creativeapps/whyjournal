@@ -1,6 +1,8 @@
 import type { Session } from '@supabase/supabase-js';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
+import { Platform } from 'react-native';
 import { create } from 'zustand';
 
 import { supabase } from '@/lib/supabase/client';
@@ -43,6 +45,26 @@ export const useAuthStore = create<State>((set) => ({
   },
 
   async signInWithApple() {
+    // On iOS, use the native Sign in with Apple flow (required by Apple's
+    // App Store guideline 4.8 when other social-login providers are offered).
+    // Other platforms fall back to the web OAuth flow.
+    if (Platform.OS === 'ios') {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      if (!credential.identityToken) {
+        throw new Error('Apple did not return an identity token');
+      }
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
+      });
+      if (error) throw error;
+      return;
+    }
     await signInWithOAuth('apple');
   },
 
