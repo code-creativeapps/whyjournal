@@ -10,9 +10,9 @@ import {
   LayersIcon,
   ListIcon,
   type LucideIcon,
-  QuoteIcon,
   RepeatIcon,
   SettingsIcon,
+  StickyNoteIcon,
   StarIcon,
   TargetIcon,
   TrophyIcon,
@@ -25,6 +25,7 @@ import { SearchHeaderButton } from '@/components/search-header-button';
 import { StatPill } from '@/components/stat-pill';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { useColorScheme } from 'nativewind';
 import { useAuthStore } from '@/lib/stores/auth';
 import { useOnboardingStore } from '@/lib/stores/onboarding';
 import { useSettingsStore } from '@/lib/stores/settings';
@@ -59,8 +60,8 @@ const SECTIONS: Section[] = [
   },
   {
     name: 'affirmations',
-    label: 'Reminders',
-    icon: QuoteIcon,
+    label: 'Notes',
+    icon: StickyNoteIcon,
     bgClass: 'bg-sky-500/15',
     iconColorClass: 'text-sky-500',
   },
@@ -130,6 +131,8 @@ export default function DrawerLayout() {
   const authLoading = useAuthStore((s) => s.loading);
   const hydrated = useOnboardingStore((s) => s.hydrated);
   const completed = useOnboardingStore((s) => s.completed);
+  const { colorScheme } = useColorScheme();
+  const palette = THEME[colorScheme === 'dark' ? 'dark' : 'light'];
 
   React.useEffect(() => {
     useSettingsStore.getState().hydrate();
@@ -144,9 +147,9 @@ export default function DrawerLayout() {
       screenOptions={{
         headerShown: true,
         drawerType: 'slide',
-        headerTintColor: THEME.light.primary,
-        headerStyle: { backgroundColor: THEME.light.background },
-        headerTitleStyle: { color: THEME.light.foreground },
+        headerTintColor: palette.primary,
+        headerStyle: { backgroundColor: palette.background },
+        headerTitleStyle: { color: palette.foreground },
         headerShadowVisible: false,
         headerRight: () => <SearchHeaderButton />,
       }}
@@ -163,7 +166,7 @@ export default function DrawerLayout() {
           ),
         }}
       />
-      <Drawer.Screen name="affirmations" options={{ title: 'Reminders' }} />
+      <Drawer.Screen name="affirmations" options={{ title: 'Notes' }} />
       <Drawer.Screen name="bucket" options={{ title: 'Bucket list' }} />
       <Drawer.Screen name="goals" options={{ title: 'Goals' }} />
       <Drawer.Screen name="projects" options={{ title: 'Projects' }} />

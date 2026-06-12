@@ -50,8 +50,8 @@ type KindConfig = {
 
 const CONFIG: Record<Kind, KindConfig> = {
   affirmation: {
-    singular: 'reminder',
-    titlePlaceholder: 'Write a reminder or positive thought',
+    singular: 'note',
+    titlePlaceholder: 'Write a note or positive thought',
     showBody: true,
   },
   bucket: {

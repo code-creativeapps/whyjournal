@@ -28,7 +28,10 @@ import { useEntriesStore } from '@/lib/stores/entries';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export default function EntryFormScreen() {
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id, type: prefillType } = useLocalSearchParams<{
+    id?: string;
+    type?: EntryType;
+  }>();
   const existing = useEntriesStore((state) =>
     id ? state.entries.find((e) => e.id === id) : undefined
   );
@@ -45,7 +48,9 @@ export default function EntryFormScreen() {
     [existing]
   );
 
-  const [type, setType] = React.useState<EntryType>(existing?.type ?? 'win');
+  const [type, setType] = React.useState<EntryType>(
+    existing?.type ?? prefillType ?? 'win'
+  );
   const [title, setTitle] = React.useState(existing?.title ?? '');
   const [body, setBody] = React.useState(existing?.body ?? '');
   const [entryDate, setEntryDate] = React.useState<Date>(initialDate);

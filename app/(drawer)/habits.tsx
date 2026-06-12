@@ -33,7 +33,11 @@ export default function HabitsScreen() {
       if (doneToday) {
         removeOnDay(habit.id, today).catch(() => {});
       } else {
-        addCompletion(habit.id, isoForNoon(today)).catch(() => {});
+        // Stamp with the exact moment of the tap so the journal feed orders
+        // completions correctly relative to journal entries created the same
+        // day. (Used to be noon for timezone-stable day cells, but day cells
+        // already bucket via startOfDay so this is safe.)
+        addCompletion(habit.id, new Date().toISOString()).catch(() => {});
       }
     },
     [addCompletion, completions, removeOnDay]
@@ -82,12 +86,6 @@ export default function HabitsScreen() {
       </View>
     </SwipeableScreen>
   );
-}
-
-function isoForNoon(day: Date): string {
-  const d = new Date(day);
-  d.setHours(12, 0, 0, 0);
-  return d.toISOString();
 }
 
 function useDayCounts(habit: Habit, completions: HabitCompletion[]) {

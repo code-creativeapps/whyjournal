@@ -14,16 +14,16 @@ export function EntryRow({ entry }: { entry: Entry }) {
     <Animated.View entering={FadeIn.duration(180)}>
       <Link href={{ pathname: '/entry-detail', params: { id: entry.id } }} asChild>
         <Pressable className="active:bg-accent">
-          <View className="flex-row items-center gap-3 px-4 py-1.5">
+          <View className="flex-row items-center gap-3.5 px-4 py-2">
             <View
               className={cn(
-                'size-6 items-center justify-center rounded-full',
+                'size-7 items-center justify-center rounded-full',
                 visual.badgeBgClass
               )}>
-              <Icon as={visual.icon} size={14} className={visual.iconColorClass} />
+              <Icon as={visual.icon} size={17} className={visual.iconColorClass} />
             </View>
             <View className="flex-1">
-              <Text className="text-base" numberOfLines={1}>
+              <Text className="text-lg" numberOfLines={1}>
                 {entry.title}
               </Text>
               {entry.body ? (

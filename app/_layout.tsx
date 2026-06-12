@@ -135,7 +135,7 @@ export default function RootLayout() {
             />
             <Stack.Screen
               name="reminder-detail"
-              options={{ headerShown: true, title: 'Reminder', presentation: 'formSheet' }}
+              options={{ headerShown: true, title: 'Note', presentation: 'formSheet' }}
             />
             <Stack.Screen
               name="trophy-detail"

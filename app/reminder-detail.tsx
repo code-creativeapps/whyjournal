@@ -36,7 +36,7 @@ export default function ReminderDetailScreen() {
     <>
       <Stack.Screen
         options={{
-          title: 'Reminder',
+          title: 'Note',
           headerLeft: () => (
             <Pressable onPress={() => router.back()} hitSlop={8} className="px-2">
               <Icon as={XIcon} size={20} className="text-foreground" />

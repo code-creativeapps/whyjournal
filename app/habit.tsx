@@ -1,5 +1,5 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { CheckIcon, PlusIcon, Trash2Icon } from 'lucide-react-native';
+import { CheckIcon, Trash2Icon } from 'lucide-react-native';
 import * as React from 'react';
 import {
   Alert,
@@ -18,7 +18,6 @@ import { Text } from '@/components/ui/text';
 import type { Habit } from '@/lib/habits/types';
 import { useGoalsStore } from '@/lib/stores/goals';
 import { useHabitsStore } from '@/lib/stores/habits';
-import { useRoutinesStore } from '@/lib/stores/routines';
 import { cn } from '@/lib/utils';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -35,9 +34,6 @@ export default function HabitFormScreen() {
   const updateHabit = useHabitsStore((s) => s.updateItem);
   const deleteHabit = useHabitsStore((s) => s.deleteItem);
 
-  const routines = useRoutinesStore((s) => s.items);
-  const addRoutine = useRoutinesStore((s) => s.addItem);
-
   const goals = useGoalsStore((s) => s.items);
 
   const isEditing = Boolean(id);
@@ -48,7 +44,6 @@ export default function HabitFormScreen() {
     existing?.timesPerWeek ?? 7
   );
   const [fixedDays, setFixedDays] = React.useState<number[]>(existing?.fixedDays ?? []);
-  const [routineId, setRoutineId] = React.useState<string | undefined>(existing?.routineId);
   const [goalId, setGoalId] = React.useState<string | undefined>(
     existing?.goalId ?? prefillGoalId
   );
@@ -71,24 +66,6 @@ export default function HabitFormScreen() {
     });
   }
 
-  function handleAddRoutine() {
-    Alert.prompt(
-      'New routine',
-      'Name this group of habits.',
-      async (name) => {
-        const trimmed = name?.trim();
-        if (!trimmed) return;
-        try {
-          const created = await addRoutine({ title: trimmed });
-          setRoutineId(created.id);
-        } catch (err) {
-          Alert.alert('Couldn’t create routine', err instanceof Error ? err.message : '');
-        }
-      },
-      'plain-text'
-    );
-  }
-
   async function handleSave() {
     if (!canSave) return;
     setSaving(true);
@@ -97,7 +74,6 @@ export default function HabitFormScreen() {
       body: body.trim() || undefined,
       timesPerWeek,
       fixedDays: fixedDays.length > 0 ? fixedDays : undefined,
-      routineId,
       goalId,
     };
     try {
@@ -219,32 +195,6 @@ export default function HabitFormScreen() {
                   ))}
                 </View>
               </View>
-            </View>
-          </Field>
-
-          <Field label="Routine" hint="Group habits into a stack like a morning routine.">
-            <View className="flex-row flex-wrap gap-2">
-              <PickerChip
-                active={!routineId}
-                label="None"
-                onPress={() => setRoutineId(undefined)}
-              />
-              {routines.map((r) => (
-                <PickerChip
-                  key={r.id}
-                  active={routineId === r.id}
-                  label={r.title}
-                  onPress={() => setRoutineId(r.id)}
-                />
-              ))}
-              <Pressable
-                onPress={handleAddRoutine}
-                className="flex-row items-center gap-1 rounded-full border border-dashed border-border px-3 py-1.5">
-                <Icon as={PlusIcon} size={14} className="text-muted-foreground" />
-                <Text variant="muted" className="text-sm">
-                  New routine
-                </Text>
-              </Pressable>
             </View>
           </Field>
 

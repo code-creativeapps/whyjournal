@@ -1,18 +1,9 @@
-import { Link, Stack } from 'expo-router';
-import { View } from 'react-native';
-import { Text } from '@/components/ui/text';
+import { Redirect } from 'expo-router';
 
-export default function NotFoundScreen() {
-  return (
-    <>
-      <Stack.Screen options={{ title: 'Oops!' }} />
-      <View>
-        <Text>This screen doesn't exist.</Text>
-
-        <Link href="/">
-          <Text>Go to home screen!</Text>
-        </Link>
-      </View>
-    </>
-  );
+// expo-router catches any unmatched route here. Deep links from Supabase
+// auth callbacks land at routes we don't have (e.g. `loghero://` + a hash
+// fragment), so quietly redirect to the journal instead of showing the
+// default "This screen doesn't exist" page.
+export default function NotFound() {
+  return <Redirect href="/" />;
 }

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" rx="228" fill="#8b5cf6"/>
+  <!-- Stack of three rounded "log" cards, each with a colored tab on the
+       leading edge. Reads as different kinds of entries piled into one feed. -->
+
+  <!-- Bottom card (orange milestone) -->
+  <rect x="220" y="572" width="584" height="180" rx="56" fill="#ffffff"/>
+  <rect x="220" y="572" width="60" height="180" fill="#fb923c"/>
+  <rect x="220" y="572" width="60" height="180" rx="30" fill="#fb923c"/>
+
+  <!-- Middle card (purple habit) -->
+  <rect x="220" y="404" width="584" height="180" rx="56" fill="#ffffff"/>
+  <rect x="220" y="404" width="60" height="180" rx="30" fill="#c084fc"/>
+
+  <!-- Top card (green win) -->
+  <rect x="220" y="236" width="584" height="180" rx="56" fill="#ffffff"/>
+  <rect x="220" y="236" width="60" height="180" rx="30" fill="#22c55e"/>
+</svg>

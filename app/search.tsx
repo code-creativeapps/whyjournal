@@ -3,9 +3,9 @@ import {
   BookOpenIcon,
   CheckSquareIcon,
   DiamondIcon,
-  QuoteIcon,
   RepeatIcon,
   StarIcon,
+  StickyNoteIcon,
   TargetIcon,
   TrophyIcon,
   XIcon,
@@ -63,10 +63,10 @@ const KIND_VISUAL: Record<
     label: 'Habit',
   },
   affirmation: {
-    icon: QuoteIcon,
+    icon: StickyNoteIcon,
     bgClass: 'bg-sky-500/15',
     iconColorClass: 'text-sky-500',
-    label: 'Reminder',
+    label: 'Note',
   },
   bucket: {
     icon: StarIcon,
@@ -144,7 +144,7 @@ export default function SearchScreen() {
         {query.trim().length === 0 ? (
           <View className="flex-1 items-center justify-center px-8">
             <Text variant="muted" className="text-center text-sm">
-              Type to search journal entries, todos, goals, milestones, habits, reminders, bucket
+              Type to search journal entries, todos, goals, milestones, habits, notes, bucket
               items, and trophies.
             </Text>
           </View>

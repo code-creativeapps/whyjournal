@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" rx="228" fill="#8b5cf6"/>
+  <!-- Three stacked rows, each with a colored badge and a small icon glyph. -->
+
+  <!-- Row 1: Win — green check -->
+  <circle cx="280" cy="358" r="60" fill="#22c55e"/>
+  <path d="M250 358 L274 384 L310 340"
+        fill="none" stroke="#ffffff" stroke-width="22"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="380" y="324" width="404" height="68" rx="34" fill="#ffffff"/>
+
+  <!-- Row 2: Habit — purple repeat -->
+  <circle cx="280" cy="516" r="60" fill="#c084fc"/>
+  <path d="M252 502 L262 488 H300 V480 L320 498 L300 516 V508 H266 V524"
+        fill="#ffffff" stroke="#ffffff" stroke-width="2"/>
+  <path d="M306 530 L296 544 H260 V552 L240 534 L260 516 V524 H292 V508"
+        fill="#ffffff" stroke="#ffffff" stroke-width="2"/>
+  <rect x="380" y="482" width="404" height="68" rx="34" fill="#ffffff"/>
+
+  <!-- Row 3: Milestone — orange diamond -->
+  <circle cx="280" cy="674" r="60" fill="#fb923c"/>
+  <path d="M280 632 L322 674 L280 716 L238 674 Z" fill="#ffffff"/>
+  <rect x="380" y="640" width="404" height="68" rx="34" fill="#ffffff"/>
+</svg>

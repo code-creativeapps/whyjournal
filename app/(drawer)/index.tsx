@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EntryRow } from '@/components/entry-row';
 import { Fab } from '@/components/fab';
+import { JournalPreview } from '@/components/journal-preview';
 import { SwipeableRow } from '@/components/swipeable-row';
 import { SwipeableScreen } from '@/components/swipeable-screen';
 import { Icon } from '@/components/ui/icon';
@@ -89,11 +90,11 @@ const ActivityRow = React.memo(function ActivityRow({
   const meta = ACTIVITY_META[item.kind];
   return (
     <Animated.View entering={FadeIn.duration(180)}>
-      <View className="flex-row items-center gap-3 px-4 py-1.5">
-        <View className={cn('size-6 items-center justify-center rounded-full', meta.bg)}>
-          <Icon as={meta.icon} size={14} className={meta.color} />
+      <View className="flex-row items-center gap-3.5 px-4 py-2">
+        <View className={cn('size-7 items-center justify-center rounded-full', meta.bg)}>
+          <Icon as={meta.icon} size={17} className={meta.color} />
         </View>
-        <Text className="flex-1 text-base" numberOfLines={1}>
+        <Text className="flex-1 text-lg" numberOfLines={1}>
           {item.title}
         </Text>
       </View>
@@ -191,17 +192,19 @@ export default function JournalScreen() {
     <SwipeableScreen route="index">
       <View className="flex-1">
       {hydrated && hasNothing ? (
-        <View className="flex-1 items-center justify-center gap-4 px-8">
+        <View className="flex-1 items-center justify-center gap-6 px-6">
           <Text variant="h3" className="text-center">
             Start with one win today
           </Text>
-          <Text variant="muted" className="text-center">
-            Capture a small win or something you&apos;re grateful for. It takes less than a minute.
+          <View className="w-full max-w-md">
+            <JournalPreview muted />
+          </View>
+          <Text variant="muted" className="text-center text-sm leading-5">
+            Your wins, completed habits, todos, and milestones all land here.
           </Text>
         </View>
       ) : (
         <>
-          <FilterBar value={filter} onChange={setFilter} />
           <SectionList
             sections={sections}
             keyExtractor={(item) => item.id}

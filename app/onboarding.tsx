@@ -1,81 +1,188 @@
 import { Stack, router } from 'expo-router';
+import { CheckIcon, DiamondIcon, RepeatIcon } from 'lucide-react-native';
 import * as React from 'react';
-import { Dimensions, Pressable, ScrollView, TextInput as RNTextInput, View } from 'react-native';
-import ConfettiCannon from 'react-native-confetti-cannon';
+import { Alert, Pressable, ScrollView, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import CelebrationIllustration from '@/assets/illustrations/celebration.svg';
-import GoalIllustration from '@/assets/illustrations/goal.svg';
-import TrophyIllustration from '@/assets/illustrations/trophy.svg';
-import WelcomeIllustration from '@/assets/illustrations/welcome.svg';
-
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
-import { celebrate, celebrateTrophy } from '@/lib/celebrate';
-import { useEntriesStore } from '@/lib/stores/entries';
 import { useGoalsStore } from '@/lib/stores/goals';
-import { useOnboardingStore } from '@/lib/stores/onboarding';
-import { useTrophiesStore } from '@/lib/stores/trophies';
+import { useHabitsStore } from '@/lib/stores/habits';
+import {
+  useOnboardingStore,
+  type OnboardingFocus,
+} from '@/lib/stores/onboarding';
+import { cn } from '@/lib/utils';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const STEPS = ['welcome', 'trophy', 'goal', 'win'] as const;
+const STEPS = ['welcome', 'focus', 'goal', 'habit'] as const;
 type Step = (typeof STEPS)[number];
+
+const FOCUS_OPTIONS: { value: OnboardingFocus; emoji: string; label: string }[] = [
+  { value: 'journal', emoji: '📝', label: 'Journal what’s going well' },
+  { value: 'habits', emoji: '🔁', label: 'Build daily habits' },
+  { value: 'goals', emoji: '🎯', label: 'Hit bigger goals' },
+  { value: 'all', emoji: '🚀', label: 'All of it' },
+];
+
+// Goal suggestions surfaced as chips. Keyed by the focus segment from screen 2.
+const GOAL_SUGGESTIONS: Record<OnboardingFocus, string[]> = {
+  journal: [
+    'Notice more wins',
+    'Become more grateful',
+    'Track my mood',
+    'Be a calmer person',
+  ],
+  habits: [
+    'Get fit',
+    'Sleep better',
+    'Read 1 book / month',
+    'Be a calmer person',
+  ],
+  goals: [
+    'Run a half-marathon',
+    'Ship 1 app / month',
+    'Save $10k',
+    'Learn Spanish',
+  ],
+  all: [
+    'Run a half-marathon',
+    'Ship 1 app / month',
+    'Read 1 book / month',
+    'Sleep better',
+    'Save $10k',
+  ],
+};
+
+// Habit suggestions tied to common goals. The fallback list runs when nothing
+// matches the user's chosen goal text.
+const HABIT_SUGGESTIONS: { match: RegExp; items: { title: string; timesPerWeek: number }[] }[] = [
+  {
+    match: /run|marathon/i,
+    items: [
+      { title: 'Run', timesPerWeek: 3 },
+      { title: 'Stretch 10 min', timesPerWeek: 7 },
+      { title: 'Walk 5km', timesPerWeek: 4 },
+    ],
+  },
+  {
+    match: /ship|app|build|code/i,
+    items: [
+      { title: 'Code 1 hour', timesPerWeek: 5 },
+      { title: 'Ship 1 commit', timesPerWeek: 6 },
+      { title: 'Sketch one screen', timesPerWeek: 3 },
+    ],
+  },
+  {
+    match: /sleep|rest/i,
+    items: [
+      { title: 'Lights off by 11', timesPerWeek: 7 },
+      { title: 'No phone in bed', timesPerWeek: 7 },
+      { title: 'Stretch before bed', timesPerWeek: 5 },
+    ],
+  },
+  {
+    match: /read|book/i,
+    items: [
+      { title: 'Read 10 pages', timesPerWeek: 7 },
+      { title: 'Listen to audiobook', timesPerWeek: 4 },
+    ],
+  },
+  {
+    match: /spanish|language|learn/i,
+    items: [
+      { title: 'Duolingo lesson', timesPerWeek: 7 },
+      { title: 'Watch 1 episode in target language', timesPerWeek: 3 },
+    ],
+  },
+  {
+    match: /grateful|mood|calm|journal|notice/i,
+    items: [
+      { title: '5-minute journal', timesPerWeek: 7 },
+      { title: 'List 3 gratitudes', timesPerWeek: 7 },
+      { title: '10-min meditation', timesPerWeek: 5 },
+    ],
+  },
+  {
+    match: /save|money|finance/i,
+    items: [
+      { title: 'Log every expense', timesPerWeek: 7 },
+      { title: 'No-spend day', timesPerWeek: 2 },
+    ],
+  },
+  {
+    match: /fit|gym|workout/i,
+    items: [
+      { title: 'Workout 30 min', timesPerWeek: 4 },
+      { title: 'Walk 8k steps', timesPerWeek: 7 },
+      { title: 'Stretch 10 min', timesPerWeek: 7 },
+    ],
+  },
+];
+
+const FALLBACK_HABITS = [
+  { title: 'Drink water', timesPerWeek: 7 },
+  { title: 'Move your body', timesPerWeek: 5 },
+  { title: 'Read 10 pages', timesPerWeek: 7 },
+  { title: '5-minute journal', timesPerWeek: 7 },
+];
 
 export default function OnboardingScreen() {
   const [step, setStep] = React.useState<Step>('welcome');
-  const [trophyTitle, setTrophyTitle] = React.useState('');
-  const [trophyWhen, setTrophyWhen] = React.useState('');
+  const [focus, setFocus] = React.useState<OnboardingFocus | null>(null);
   const [goalTitle, setGoalTitle] = React.useState('');
-  const [winTitle, setWinTitle] = React.useState('');
+  const [habitTitle, setHabitTitle] = React.useState('');
+  const [habitTimes, setHabitTimes] = React.useState(7);
   const [saving, setSaving] = React.useState(false);
   const insets = useSafeAreaInsets();
-  const cannon = React.useRef<ConfettiCannon>(null);
 
   const stepIdx = STEPS.indexOf(step);
   const isLast = stepIdx === STEPS.length - 1;
+  const goalHasContent = goalTitle.trim().length > 0;
+  const habitHasContent = habitTitle.trim().length > 0;
+  const canContinue =
+    (step === 'welcome' ||
+      (step === 'focus' && focus !== null) ||
+      (step === 'goal' && goalHasContent) ||
+      (step === 'habit' && habitHasContent)) &&
+    !saving;
 
-  async function finish() {
+  async function finish(skipped: boolean) {
     setSaving(true);
     try {
-      if (trophyTitle.trim()) {
-        await useTrophiesStore.getState().addItem({
-          title: trophyTitle.trim(),
-          when: trophyWhen.trim() || undefined,
-        });
-      }
-      if (goalTitle.trim()) {
-        await useGoalsStore.getState().addItem({
+      let createdGoalId: string | undefined;
+      if (!skipped && goalHasContent) {
+        // Mark this as cornerstone only if the user has no other goals yet.
+        const existing = useGoalsStore.getState().items;
+        const hasCornerstone = existing.some((g) => g.isCornerstone);
+        const goal = await useGoalsStore.getState().addItem({
           title: goalTitle.trim(),
           done: false,
+          isCornerstone: !hasCornerstone,
+        });
+        createdGoalId = goal.id;
+      }
+      if (!skipped && habitHasContent) {
+        await useHabitsStore.getState().addItem({
+          title: habitTitle.trim(),
+          timesPerWeek: habitTimes,
+          goalId: createdGoalId,
         });
       }
-      if (winTitle.trim()) {
-        await useEntriesStore.getState().addEntry({
-          type: 'win',
-          title: winTitle.trim(),
-        });
-      }
-      await useOnboardingStore.getState().markComplete();
+      await useOnboardingStore.getState().markComplete(focus ?? 'all');
       router.replace('/');
+    } catch (err) {
+      Alert.alert('Couldn’t save', err instanceof Error ? err.message : '');
     } finally {
       setSaving(false);
     }
   }
 
   function next() {
-    // Fire the celebration for leaving the current step, if the user filled it in.
-    if (step === 'trophy' && trophyTitle.trim()) {
-      celebrateTrophy();
-      cannon.current?.start();
-    } else if (step === 'win' && winTitle.trim()) {
-      celebrate();
-      cannon.current?.start();
-    }
-
     if (isLast) {
-      finish();
+      finish(false);
       return;
     }
     setStep(STEPS[stepIdx + 1]);
@@ -84,6 +191,16 @@ export default function OnboardingScreen() {
   function back() {
     if (stepIdx > 0) setStep(STEPS[stepIdx - 1]);
   }
+
+  function ctaLabel() {
+    if (isLast) return saving ? 'Saving…' : 'Create my starter habit';
+    if (step === 'welcome') return 'Let’s set you up';
+    return 'Continue';
+  }
+
+  const goalChips = focus ? GOAL_SUGGESTIONS[focus] : GOAL_SUGGESTIONS.all;
+  const habitChipMatch = HABIT_SUGGESTIONS.find((s) => s.match.test(goalTitle));
+  const habitChips = habitChipMatch?.items ?? FALLBACK_HABITS;
 
   return (
     <>
@@ -105,9 +222,15 @@ export default function OnboardingScreen() {
                 />
               ))}
             </View>
-            <Pressable onPress={finish} hitSlop={8} disabled={saving}>
-              <Text className="text-sm font-medium text-muted-foreground">Skip</Text>
-            </Pressable>
+            {step !== 'welcome' ? (
+              <Pressable onPress={() => finish(true)} hitSlop={8} disabled={saving}>
+                <Text className="text-sm font-medium text-muted-foreground">Skip</Text>
+              </Pressable>
+            ) : (
+              <Pressable onPress={() => router.replace('/sign-in')} hitSlop={8}>
+                <Text className="text-sm font-medium text-primary">I have an account</Text>
+              </Pressable>
+            )}
           </View>
         </View>
 
@@ -118,25 +241,26 @@ export default function OnboardingScreen() {
           keyboardDismissMode="on-drag"
           automaticallyAdjustKeyboardInsets
           showsVerticalScrollIndicator={false}>
-          <Animated.View
-            key={step}
-            entering={FadeIn.duration(260)}
-            exiting={FadeOut.duration(120)}>
+          <Animated.View key={step} entering={FadeIn.duration(220)} exiting={FadeOut.duration(120)}>
             {step === 'welcome' && <WelcomeStep />}
-            {step === 'trophy' && (
-              <TrophyStep
-                title={trophyTitle}
-                setTitle={setTrophyTitle}
-                when={trophyWhen}
-                setWhen={setTrophyWhen}
-                onSubmit={next}
+            {step === 'focus' && <FocusStep value={focus} onChange={setFocus} />}
+            {step === 'goal' && (
+              <GoalStep
+                value={goalTitle}
+                onChange={setGoalTitle}
+                suggestions={goalChips}
+                onSubmit={() => goalHasContent && next()}
               />
             )}
-            {step === 'goal' && (
-              <GoalStep title={goalTitle} setTitle={setGoalTitle} onSubmit={next} />
-            )}
-            {step === 'win' && (
-              <WinStep title={winTitle} setTitle={setWinTitle} onSubmit={next} />
+            {step === 'habit' && (
+              <HabitStep
+                value={habitTitle}
+                onChange={setHabitTitle}
+                times={habitTimes}
+                onTimesChange={setHabitTimes}
+                suggestions={habitChips}
+                onSubmit={() => habitHasContent && next()}
+              />
             )}
           </Animated.View>
         </ScrollView>
@@ -149,114 +273,174 @@ export default function OnboardingScreen() {
               <Text>Back</Text>
             </Button>
           ) : null}
-          <Button onPress={next} className="flex-1" disabled={saving}>
-            <Text>{isLast ? 'Finish' : stepIdx === 0 ? 'Get started' : 'Next'}</Text>
+          <Button onPress={next} className="flex-1" disabled={!canContinue}>
+            <Text>{ctaLabel()}</Text>
           </Button>
         </View>
-      </View>
-
-      <View pointerEvents="none" className="absolute inset-0">
-        <ConfettiCannon
-          ref={cannon}
-          count={120}
-          origin={{ x: SCREEN_WIDTH / 2, y: -10 }}
-          autoStart={false}
-          fadeOut
-          explosionSpeed={350}
-          fallSpeed={2800}
-        />
       </View>
     </>
   );
 }
 
-function Illustration({ Component }: { Component: React.FC<{ width?: number; height?: number }> }) {
-  return (
-    <View className="items-center">
-      <Component width={200} height={140} />
-    </View>
-  );
-}
-
 function WelcomeStep() {
   return (
-    <View className="gap-6">
-      <Illustration Component={WelcomeIllustration} />
+    <View className="gap-6 pt-4">
       <Text variant="h1" className="text-4xl font-extrabold leading-tight">
-        Five minutes a day.
+        ✨ Win the day, every day.
       </Text>
       <Text variant="lead" className="text-muted-foreground">
-        Capture wins, remember your trophies, move your goals forward — one small entry at a time.
+        LogHero turns small daily wins into momentum — one calm ritual, no app-switching.
       </Text>
-      <Text variant="muted">
-        Let&apos;s set up a few things so the app isn&apos;t empty when you start.
-      </Text>
+      <JournalPreview />
     </View>
   );
 }
 
-function TrophyStep({
-  title,
-  setTitle,
-  when,
-  setWhen,
-  onSubmit,
-}: {
-  title: string;
-  setTitle: (v: string) => void;
-  when: string;
-  setWhen: (v: string) => void;
-  onSubmit: () => void;
-}) {
-  const whenRef = React.useRef<RNTextInput>(null);
+function JournalPreview() {
   return (
-    <View className="gap-4">
-      <Illustration Component={TrophyIllustration} />
-      <Text variant="h2">🏆 Start with a trophy</Text>
-      <Text variant="muted">
-        Name one big thing you&apos;ve done. Something you want to come back to on hard days.
-      </Text>
-      <Input
-        placeholder="e.g. Ran a marathon"
-        value={title}
-        onChangeText={setTitle}
-        autoFocus
-        returnKeyType="next"
-        onSubmitEditing={() => whenRef.current?.focus()}
+    <View className="overflow-hidden rounded-2xl border border-border bg-background">
+      <View className="border-b border-border px-4 py-2">
+        <Text variant="small" className="text-muted-foreground">
+          Today
+        </Text>
+      </View>
+      <PreviewRow
+        icon={CheckIcon}
+        iconBg="bg-green-500/15"
+        iconColor="text-green-600"
+        title="Ran 5 km"
+        body="Beat last week’s time"
       />
-      <Input
-        ref={whenRef}
-        placeholder="When? (e.g. 2022) — optional"
-        value={when}
-        onChangeText={setWhen}
-        returnKeyType="done"
-        onSubmitEditing={onSubmit}
+      <View className="h-px bg-border" />
+      <PreviewRow
+        icon={RepeatIcon}
+        iconBg="bg-purple-600/15"
+        iconColor="text-purple-600"
+        title="Yoga"
       />
+      <View className="h-px bg-border" />
+      <PreviewRow
+        icon={DiamondIcon}
+        iconBg="bg-orange-500/15"
+        iconColor="text-orange-500"
+        title="Shipped a draft"
+      />
+    </View>
+  );
+}
+
+function PreviewRow({
+  icon,
+  iconBg,
+  iconColor,
+  title,
+  body,
+}: {
+  icon: React.ComponentProps<typeof Icon>['as'];
+  iconBg: string;
+  iconColor: string;
+  title: string;
+  body?: string;
+}) {
+  return (
+    <View className="flex-row items-center gap-3 px-4 py-2.5">
+      <View className={cn('size-7 items-center justify-center rounded-full', iconBg)}>
+        <Icon as={icon} size={17} className={iconColor} />
+      </View>
+      <View className="flex-1">
+        <Text className="text-base" numberOfLines={1}>
+          {title}
+        </Text>
+        {body ? (
+          <Text variant="muted" numberOfLines={1} className="text-xs">
+            {body}
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function FocusStep({
+  value,
+  onChange,
+}: {
+  value: OnboardingFocus | null;
+  onChange: (v: OnboardingFocus) => void;
+}) {
+  return (
+    <View className="gap-4 pt-4">
+      <Text variant="h2">What brings you here?</Text>
+      <Text variant="muted">Pick the one that feels closest right now.</Text>
+      <View className="gap-2">
+        {FOCUS_OPTIONS.map((opt) => {
+          const selected = value === opt.value;
+          return (
+            <Pressable
+              key={opt.value}
+              onPress={() => onChange(opt.value)}
+              className={cn(
+                'flex-row items-center gap-3 rounded-2xl border bg-background px-4 py-4',
+                selected ? 'border-primary bg-primary/5' : 'border-border'
+              )}>
+              <Text className="text-2xl">{opt.emoji}</Text>
+              <Text className="flex-1 text-base font-medium">{opt.label}</Text>
+              <View
+                className={cn(
+                  'size-6 items-center justify-center rounded-full border-2',
+                  selected ? 'border-primary bg-primary' : 'border-muted-foreground/40'
+                )}>
+                {selected ? <Icon as={CheckIcon} size={14} className="text-white" /> : null}
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
 
 function GoalStep({
-  title,
-  setTitle,
+  value,
+  onChange,
+  suggestions,
   onSubmit,
 }: {
-  title: string;
-  setTitle: (v: string) => void;
+  value: string;
+  onChange: (v: string) => void;
+  suggestions: string[];
   onSubmit: () => void;
 }) {
   return (
-    <View className="gap-4">
-      <Illustration Component={GoalIllustration} />
-      <Text variant="h2">🎯 What are you working on? </Text>
-      <Text variant="muted">
-        Pick one goal that matters right now. You can break it into milestones later.
-      </Text>
+    <View className="gap-4 pt-4">
+      <Text variant="h2">What are you really after right now?</Text>
+      <Text variant="muted">Pick one. You can always add more later.</Text>
+      <View className="flex-row flex-wrap gap-2">
+        {suggestions.map((s) => {
+          const selected = value === s;
+          return (
+            <Pressable
+              key={s}
+              onPress={() => onChange(s)}
+              className={cn(
+                'rounded-full border px-3 py-2',
+                selected ? 'border-primary bg-primary/10' : 'border-border bg-background'
+              )}>
+              <Text
+                className={cn(
+                  'text-sm font-medium',
+                  selected ? 'text-primary' : 'text-foreground'
+                )}>
+                {s}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
       <Input
-        placeholder="e.g. Learn Spanish"
-        value={title}
-        onChangeText={setTitle}
-        autoFocus
+        placeholder="Or write your own…"
+        value={value}
+        onChangeText={onChange}
         returnKeyType="done"
         onSubmitEditing={onSubmit}
       />
@@ -264,33 +448,86 @@ function GoalStep({
   );
 }
 
-function WinStep({
-  title,
-  setTitle,
+function HabitStep({
+  value,
+  onChange,
+  times,
+  onTimesChange,
+  suggestions,
   onSubmit,
 }: {
-  title: string;
-  setTitle: (v: string) => void;
+  value: string;
+  onChange: (v: string) => void;
+  times: number;
+  onTimesChange: (n: number) => void;
+  suggestions: { title: string; timesPerWeek: number }[];
   onSubmit: () => void;
 }) {
+  function pick(s: { title: string; timesPerWeek: number }) {
+    onChange(s.title);
+    onTimesChange(s.timesPerWeek);
+  }
   return (
-    <View className="gap-4">
-      <Illustration Component={CelebrationIllustration} />
-      <Text variant="h2">✅ One win from today</Text>
-      <Text variant="muted">
-        Anything positive, however small. This is the habit — five seconds a day.
-      </Text>
+    <View className="gap-4 pt-4">
+      <Text variant="h2">Small thing you’ll do for it.</Text>
+      <Text variant="muted">A daily-ish action you can imagine actually doing.</Text>
+      <View className="flex-row flex-wrap gap-2">
+        {suggestions.map((s) => {
+          const selected = value === s.title;
+          return (
+            <Pressable
+              key={s.title}
+              onPress={() => pick(s)}
+              className={cn(
+                'rounded-full border px-3 py-2',
+                selected ? 'border-primary bg-primary/10' : 'border-border bg-background'
+              )}>
+              <Text
+                className={cn(
+                  'text-sm font-medium',
+                  selected ? 'text-primary' : 'text-foreground'
+                )}>
+                {s.title}
+                <Text variant="muted" className="text-xs">{`  ${s.timesPerWeek}×/wk`}</Text>
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
       <Input
-        placeholder="e.g. Went for a walk"
-        value={title}
-        onChangeText={setTitle}
-        autoFocus
+        placeholder="Or your own habit…"
+        value={value}
+        onChangeText={onChange}
         returnKeyType="done"
         onSubmitEditing={onSubmit}
       />
-      <Text variant="muted" className="text-xs">
-        You can open the app tomorrow and add another. That&apos;s all it takes.
-      </Text>
+      <View className="gap-1.5">
+        <Text variant="small" className="text-muted-foreground">
+          How many times per week?
+        </Text>
+        <View className="flex-row gap-1.5">
+          {[1, 2, 3, 4, 5, 6, 7].map((n) => {
+            const selected = times === n;
+            return (
+              <Pressable
+                key={n}
+                onPress={() => onTimesChange(n)}
+                className={cn(
+                  'h-9 flex-1 items-center justify-center rounded-full border',
+                  selected ? 'border-primary bg-primary' : 'border-border bg-background'
+                )}>
+                <Text
+                  className={cn(
+                    'text-sm font-semibold',
+                    selected ? 'text-white' : 'text-foreground'
+                  )}>
+                  {n}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
     </View>
   );
 }

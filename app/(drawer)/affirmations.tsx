@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { QuoteIcon } from 'lucide-react-native';
+import { StickyNoteIcon } from 'lucide-react-native';
 import { FlatList, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -22,7 +22,7 @@ export default function AffirmationsScreen() {
       {hydrated && items.length === 0 ? (
         <View className="flex-1 items-center justify-center gap-4 px-8">
           <Text variant="h3" className="text-center">
-            Collect reminders
+            Collect notes
           </Text>
           <Text variant="muted" className="text-center">
             Save mantras, positive thoughts, and self-truths you want to come back to.
@@ -41,11 +41,11 @@ export default function AffirmationsScreen() {
                 })
               }
               onDelete={() => deleteItem(item.id)}
-              deleteConfirmTitle="Delete reminder"
+              deleteConfirmTitle="Delete note"
             >
               <SimpleItemRow
                 kind="icon"
-                icon={QuoteIcon}
+                icon={StickyNoteIcon}
                 iconBgClass="bg-indigo-500/15"
                 iconColorClass="text-indigo-500"
                 title={item.title}

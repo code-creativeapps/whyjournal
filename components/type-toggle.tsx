@@ -12,7 +12,9 @@ type Props = {
   onChange: (value: EntryType) => void;
 };
 
-const ORDER: EntryType[] = ['win', 'gratitude', 'confirmation'];
+// Confirmation is hidden in the MVP. Keep it in the type union so existing
+// rows still render; just don't surface it in the picker.
+const ORDER: EntryType[] = ['win', 'gratitude'];
 
 export function TypeToggle({ value, onChange }: Props) {
   return (
