@@ -27,6 +27,8 @@ const config: ExpoConfig = {
     infoPlist: {
       NSPhotoLibraryUsageDescription:
         'LogHero needs access to your photos so you can attach images to your goals.',
+      // We use only HTTPS via standard system frameworks — no proprietary crypto.
+      ITSAppUsesNonExemptEncryption: false,
     },
     usesAppleSignIn: true,
   },
