@@ -38,7 +38,7 @@ const config: ExpoConfig = {
       backgroundColor: '#8b5cf6',
     },
     package: 'com.loghero.app',
-    versionCode: 1,
+    versionCode: 2,
     permissions: ['READ_MEDIA_IMAGES', 'READ_EXTERNAL_STORAGE'],
   },
   web: {
@@ -58,6 +58,7 @@ const config: ExpoConfig = {
         ios: { deploymentTarget: '15.1' },
       },
     ],
+    './plugins/with-remove-fg-media-playback',
   ],
   experiments: {
     typedRoutes: true,
