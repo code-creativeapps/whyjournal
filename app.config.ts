@@ -23,7 +23,7 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.loghero.app',
-    buildNumber: '1',
+    buildNumber: '2',
     infoPlist: {
       NSPhotoLibraryUsageDescription:
         'LogHero needs access to your photos so you can attach images to your goals.',
