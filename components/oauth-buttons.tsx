@@ -49,16 +49,20 @@ export function OAuthButtons({ disabled }: { disabled?: boolean }) {
       />
     ) : null;
 
-  // Google sign-in is hidden until the Supabase Google provider is fully
-  // configured (Google Cloud OAuth client + Supabase secret). Apple's review
-  // team WILL tap visible buttons, and a broken Google button is grounds for
-  // rejection. Re-enable once the provider config lands.
-  const googleButton: React.ReactNode = null;
-
   return (
     <View className="gap-2">
       {appleButton}
-      {googleButton}
+      <ProviderButton
+        onPress={() => handle('google')}
+        disabled={disabled || busy !== null}
+        loading={busy === 'google'}
+        label="Continue with Google"
+        renderIcon={() => (
+          <View className="size-[18px] items-center justify-center">
+            <Text className="text-base font-bold leading-none text-blue-600">G</Text>
+          </View>
+        )}
+      />
     </View>
   );
 }
