@@ -38,7 +38,7 @@ const config: ExpoConfig = {
       backgroundColor: '#8b5cf6',
     },
     package: 'com.loghero.app',
-    versionCode: 2,
+    versionCode: 3,
     permissions: ['READ_MEDIA_IMAGES', 'READ_EXTERNAL_STORAGE'],
   },
   web: {
